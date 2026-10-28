@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+/*
+ * Säljtipset design tokens.
+ * Brand: "tipset-grön", a deep green-teal, with a bright mint for highlights.
+ * On macOS the window itself is Liquid Glass (tauri.macos.conf.json): the sidebar is left
+ * transparent so the glass shows through, the content sits on a near-opaque layer, and
+ * floating controls use the .glass material below. Dark mode follows the OS.
+ */
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI Variable Display", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+
+  --color-brand: #0b7a68;
+  --color-brand-bright: #34c4a0;
+
+  --color-window: #f2f3f1;
+  --color-sidebar: #ebedea;
+  --color-content: #fbfbfa;
+  --color-surface: #ffffff;
+  --color-sunken: rgba(0, 0, 0, 0.045);
+  --color-hover: rgba(0, 0, 0, 0.05);
+  --color-line: rgba(0, 0, 0, 0.08);
+  --color-ink: #16201d;
+  --color-muted: #6b7471;
+  --color-faint: #9aa29f;
+  --color-accent: #0b7a68;
+  --color-accent-strong: #08604f;
+  --color-accent-soft: rgba(11, 122, 104, 0.11);
+  --color-on-accent: #ffffff;
+  --color-speaker-a: #0b7a68;
+  --color-speaker-b: #b5641a;
+  --color-danger: #c4321f;
+  --color-danger-soft: rgba(196, 50, 31, 0.09);
+  --color-mark: rgba(52, 196, 160, 0.28);
+  --color-glass: rgba(255, 255, 255, 0.72);
+  --color-glass-line: rgba(255, 255, 255, 0.7);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-window: #151817;
+    --color-sidebar: #1b1f1e;
+    --color-content: #161a19;
+    --color-surface: #1f2423;
+    --color-sunken: rgba(255, 255, 255, 0.06);
+    --color-hover: rgba(255, 255, 255, 0.07);
+    --color-line: rgba(255, 255, 255, 0.09);
+    --color-ink: #e9eeec;
+    --color-muted: #9ba5a1;
+    --color-faint: #6c7672;
+    --color-accent: #4fd1b0;
+    --color-accent-strong: #74dcc1;
+    --color-accent-soft: rgba(79, 209, 176, 0.14);
+    --color-on-accent: #062a23;
+    --color-speaker-a: #5fd6b8;
+    --color-speaker-b: #f0ac62;
+    --color-danger: #ff8a7a;
+    --color-danger-soft: rgba(255, 138, 122, 0.12);
+    --color-mark: rgba(79, 209, 176, 0.25);
+    --color-glass: rgba(40, 46, 44, 0.66);
+    --color-glass-line: rgba(255, 255, 255, 0.1);
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-window);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  letter-spacing: -0.003em;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* macOS: let the Liquid Glass window show through behind the sidebar. */
+html.native-glass body {
+  background: transparent;
+}
+html:not(.native-glass) .sidebar {
+  background: var(--color-sidebar);
+}
+.content {
+  background: var(--color-content);
+}
+html.native-glass .content {
+  background: color-mix(in srgb, var(--color-content) 94%, transparent);
+}
+
+/* Floating material for toolbars, menus and the chat. */
+.glass {
+  background: var(--color-glass);
+  -webkit-backdrop-filter: saturate(180%) blur(28px);
+  backdrop-filter: saturate(180%) blur(28px);
+  border: 1px solid var(--color-glass-line);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 8px 30px rgba(0, 0, 0, 0.1),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Text people may want to select and copy by hand. */
+.selectable,
+.selectable * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+button {
+  cursor: default;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+:hover::-webkit-scrollbar-thumb {
+  background-color: var(--color-line);
+}
+
+@keyframes flash {
+  0% {
+    background: var(--color-mark);
+  }
+  100% {
+    background: transparent;
+  }
+}
+.flash {
+  animation: flash 2.6s ease-out;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes dots {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+.typing span {
+  animation: dots 1.2s infinite;
+}
+.typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}

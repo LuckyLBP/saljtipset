@@ -1,0 +1,201 @@
+name: Bygg och testa
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # KB-Whisper small q5_0, used by the end-to-end transcription tests.
+  TEST_MODEL_URL: https://huggingface.co/KBLab/kb-whisper-small/resolve/main/ggml-model-q5_0.bin
+  TEST_MODEL_SHA256: 6768836a51abc902e420c613153e6d418c90ea2774e913274d02ab23170225b7
+
+jobs:
+  test:
+    name: Tester (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64, Metal
+            os: macos-latest
+            features: gpu-metal
+          # GitHub's Windows runners have no GPU, so this also checks that a Vulkan build
+          # falls back to the CPU cleanly when there is no usable device.
+          - name: Windows, Vulkan utan GPU
+            os: windows-latest
+            features: gpu-vulkan
+    runs-on: ${{ matrix.os }}
+    env:
+      GGML_NATIVE: "OFF"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.features }}
+
+      - name: Installera Vulkan SDK
+        if: runner.os == 'Windows'
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          install_runtime: true
+          cache: true
+          stripdown: true
+
+      - name: Hämta testmodellen
+        id: model
+        uses: actions/cache@v4
+        with:
+          path: test-model
+          key: kb-whisper-small-q5_0-${{ env.TEST_MODEL_SHA256 }}
+
+      - name: Ladda ner testmodellen
+        if: steps.model.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p test-model
+          curl -fL --retry 3 -o test-model/model.bin "$TEST_MODEL_URL"
+          echo "$TEST_MODEL_SHA256  test-model/model.bin" | shasum -a 256 -c -
+
+      # The Tauri build script expects the frontend output to exist.
+      - name: Frontend-platshållare
+        shell: bash
+        run: mkdir -p dist && echo '<!doctype html>' > dist/index.html
+
+      - name: Kör tester
+        shell: bash
+        working-directory: src-tauri
+        env:
+          SALJTIPSET_TEST_MODEL: ${{ github.workspace }}/test-model/model.bin
+        run: cargo test --features ${{ matrix.features }} -- --nocapture
+
+  build:
+    name: Bygg (${{ matrix.name }})
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS Apple Silicon
+            os: macos-latest
+            target: aarch64-apple-darwin
+            features: gpu-metal
+          # Built natively on an Intel runner: cross-compiling whisper.cpp to x86_64 is fragile.
+          - name: macOS Intel
+            os: macos-15-intel
+            target: x86_64-apple-darwin
+            features: ""
+          - name: Windows
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            features: gpu-vulkan
+    runs-on: ${{ matrix.os }}
+    env:
+      # x86 builds must run on any customer CPU, not just the CI machine's (AVX2 baseline).
+      GGML_NATIVE: ${{ matrix.target == 'aarch64-apple-darwin' && 'ON' || 'OFF' }}
+      HAS_WINDOWS_CERT: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          key: ${{ matrix.target }}
+
+      - name: Installera Vulkan SDK
+        if: runner.os == 'Windows'
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          install_runtime: true
+          cache: true
+          stripdown: true
+
+      - name: Lägg vulkan-1.dll i installationspaketet
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/fetch-vulkan-loader.ps1
+
+      - run: pnpm install --frozen-lockfile
+
+      # --- Windows code signing (optional) -------------------------------------------
+      # Add the secrets WINDOWS_CERTIFICATE (base64 of the .pfx) and
+      # WINDOWS_CERTIFICATE_PASSWORD. Without them the installer is unsigned.
+      - name: Importera Authenticode-certifikat
+        id: wincert
+        if: runner.os == 'Windows' && env.HAS_WINDOWS_CERT == 'true'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP "cert.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $pw = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          $cert = Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\CurrentUser\My -Password $pw
+          $json = '{"bundle":{"windows":{"certificateThumbprint":"' + $cert.Thumbprint + '"}}}'
+          Set-Content -Path (Join-Path $env:RUNNER_TEMP "sign.conf.json") -Value $json
+          "config=--config `"$env:RUNNER_TEMP\sign.conf.json`"" >> $env:GITHUB_OUTPUT
+
+      # --- In-app updates (optional) -------------------------------------------------
+      # Set the repository variable ENABLE_UPDATER=true and the secrets
+      # TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD, and fill in
+      # src-tauri/tauri.updater.conf.json. See README "Uppdateringar".
+      - name: Byggflaggor
+        id: flags
+        shell: bash
+        run: |
+          features="${{ matrix.features }}"
+          extra=""
+          if [ "${{ vars.ENABLE_UPDATER }}" = "true" ]; then
+            features="${features:+$features,}updater"
+            extra="--config src-tauri/tauri.updater.conf.json"
+          fi
+          echo "args=--target ${{ matrix.target }} ${features:+--features $features} $extra ${{ steps.wincert.outputs.config }}" >> "$GITHUB_OUTPUT"
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # --- macOS signing + notarization (optional) ---------------------------------
+          # Without these the .dmg is unsigned and Gatekeeper warns. See README.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # --- updater signing (only used when ENABLE_UPDATER=true) --------------------
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          args: ${{ steps.flags.outputs.args }}
+          # On a tag: attach the .dmg / .msi / setup.exe to a draft release.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseName: Säljtipset ${{ github.ref_name }}
+          releaseDraft: true
+          # Manual runs: keep the installers as workflow artifacts instead.
+          uploadWorkflowArtifacts: true
+          workflowArtifactNamePattern: saljtipset-[platform]-[arch]

@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <!-- Replaced with "owner/repo" by .github/workflows/pages.yml -->
+    <meta name="repo" content="__REPO__" />
+    <title>Säljtipset</title>
+    <meta name="description" content="Säljtipset skriver ut dina säljsamtal på din egen dator och ger dig konkreta säljtips. Ljudet lämnar aldrig datorn." />
+    <link rel="icon" href="favicon.png" />
+    <style>
+      :root {
+        --brand: #0b7a68;
+        --brand-bright: #34c4a0;
+        --bg: #f4f5f3;
+        --surface: #ffffff;
+        --ink: #16201d;
+        --muted: #66706c;
+        --line: rgba(0, 0, 0, 0.08);
+        --on-brand: #ffffff;
+        --glass: rgba(255, 255, 255, 0.7);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --brand: #4fd1b0;
+          --bg: #121514;
+          --surface: #1c201f;
+          --ink: #e9eeec;
+          --muted: #9ba5a1;
+          --line: rgba(255, 255, 255, 0.09);
+          --on-brand: #062a23;
+          --glass: rgba(34, 40, 38, 0.7);
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        line-height: 1.5;
+      }
+      .wrap {
+        max-width: 1040px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      .display {
+        font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", system-ui, sans-serif;
+        letter-spacing: -0.02em;
+      }
+      .glow {
+        position: fixed;
+        inset: -30vh -10vw auto;
+        height: 80vh;
+        background: radial-gradient(50% 50% at 50% 50%, rgba(52, 196, 160, 0.22), transparent 70%);
+        pointer-events: none;
+        z-index: -1;
+      }
+      header.top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 0;
+      }
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        font-size: 18px;
+        color: var(--ink);
+        text-decoration: none;
+      }
+      .logo img {
+        width: 32px;
+        height: 32px;
+      }
+      .hero {
+        text-align: center;
+        padding: 72px 0 40px;
+      }
+      .hero img.mark {
+        width: 112px;
+        height: 112px;
+        filter: drop-shadow(0 16px 30px rgba(11, 122, 104, 0.3));
+      }
+      h1 {
+        font-size: clamp(36px, 6vw, 60px);
+        line-height: 1.05;
+        margin: 22px 0 14px;
+      }
+      .lead {
+        font-size: 19px;
+        color: var(--muted);
+        max-width: 620px;
+        margin: 0 auto;
+      }
+      .downloads {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+        margin: 32px 0 10px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 46px;
+        padding: 0 22px;
+        border-radius: 999px;
+        font-size: 15px;
+        font-weight: 600;
+        text-decoration: none;
+        color: var(--ink);
+        background: var(--glass);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        box-shadow: 0 0 0 0.5px var(--line), 0 4px 14px rgba(0, 0, 0, 0.06);
+        transition: transform 0.15s;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+      .btn.primary {
+        background: var(--brand);
+        color: var(--on-brand);
+        box-shadow: 0 8px 24px rgba(11, 122, 104, 0.3);
+      }
+      .btn svg {
+        width: 18px;
+        height: 18px;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+        min-height: 20px;
+      }
+      .meta a {
+        color: inherit;
+      }
+      .shot {
+        margin: 48px auto 0;
+        max-width: 960px;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 0 0 0.5px var(--line), 0 30px 80px rgba(0, 0, 0, 0.18);
+      }
+      .shot img {
+        display: block;
+        width: 100%;
+      }
+      .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        padding: 72px 0 24px;
+      }
+      .card {
+        background: var(--surface);
+        border-radius: 22px;
+        padding: 22px;
+        box-shadow: 0 0 0 0.5px var(--line), 0 1px 3px rgba(0, 0, 0, 0.04);
+      }
+      .card .icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        background: rgba(52, 196, 160, 0.15);
+        color: var(--brand);
+        margin-bottom: 14px;
+      }
+      .card h3 {
+        margin: 0 0 6px;
+        font-size: 16px;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      section.help {
+        padding: 40px 0 24px;
+      }
+      section.help h2 {
+        font-size: 26px;
+        margin: 0 0 16px;
+      }
+      .help-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 14px;
+      }
+      .help-grid ol {
+        margin: 8px 0 0;
+        padding-left: 20px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .help-grid li {
+        margin-bottom: 6px;
+      }
+      footer {
+        padding: 48px 0 56px;
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+      footer a {
+        color: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="glow"></div>
+    <div class="wrap">
+      <header class="top">
+        <a class="logo display" href="./"><img src="icon.png" alt="" />Säljtipset</a>
+        <a class="btn" id="releases-link" href="#" style="height: 36px; font-size: 14px">Alla versioner</a>
+      </header>
+
+      <section class="hero">
+        <img class="mark" src="icon.png" alt="Säljtipset" />
+        <h1 class="display">Bättre samtal,<br />ett tips i taget.</h1>
+        <p class="lead">
+          Släpp in en inspelning av ett säljsamtal. Säljtipset skriver ut det på din egen dator med en svensk talmodell, visar
+          vad som fungerade och vad du kan säga nästa gång.
+        </p>
+
+        <div class="downloads">
+          <a class="btn primary" id="dl-mac-arm" href="#">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.5-1-2.5-3.8ZM14.1 5.8c.6-.8 1.1-1.9 1-3-.9 0-2.1.6-2.7 1.4-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.7-1.3Z" /></svg>
+            Ladda ner för Mac
+          </a>
+          <a class="btn" id="dl-win" href="#">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10 4.5v7H3v-6Zm0 13 7 1v-7H3v6Zm8 1.1 10 1.4v-8.5H11v7.1ZM11 4.4V11.5h10V3L11 4.4Z" /></svg>
+            Ladda ner för Windows
+          </a>
+        </div>
+        <p class="meta" id="meta">Hämtar senaste versionen…</p>
+        <p class="meta" id="intel" hidden>Mac med Intel-processor? <a id="dl-mac-intel" href="#">Hämta Intel-versionen</a>.</p>
+
+        <div class="shot"><img src="screenshot.jpg" alt="Säljtipset med säljtips och transkribering" /></div>
+      </section>
+
+      <section class="features">
+        <div class="card">
+          <div class="icon">🔒</div>
+          <h3>Ljudet stannar hos dig</h3>
+          <p>Transkriberingen sker på din dator. Ljudfilen laddas aldrig upp någonstans.</p>
+        </div>
+        <div class="card">
+          <div class="icon">🇸🇪</div>
+          <h3>Byggd för svenska</h3>
+          <p>KB-Whisper från Kungliga biblioteket förstår svenska samtal, med tidsstämplar och två talare i stereo.</p>
+        </div>
+        <div class="card">
+          <div class="icon">✦</div>
+          <h3>Säljtips med belägg</h3>
+          <p>Vad som fungerade, kundens behov, invändningar och nästa steg, alltid med citat ur samtalet.</p>
+        </div>
+        <div class="card">
+          <div class="icon">💬</div>
+          <h3>Fråga om samtalet</h3>
+          <p>"Hur bemöter jag prisinvändningen?" Chatta med AI:n om just ditt samtal, med din egen Claude- eller ChatGPT-prenumeration.</p>
+        </div>
+      </section>
+
+      <section class="help">
+        <h2 class="display">Första gången du öppnar appen</h2>
+        <div class="help-grid">
+          <div class="card">
+            <h3>Mac</h3>
+            <ol>
+              <li>Öppna den nedladdade .dmg-filen och dra Säljtipset till Program.</li>
+              <li>Högerklicka på Säljtipset i Program och välj <b>Öppna</b>, och sedan <b>Öppna</b> igen.</li>
+              <li>Säger macOS att appen inte kan öppnas? Gå till Systeminställningar → Integritet och säkerhet och klicka <b>Öppna ändå</b>.</li>
+            </ol>
+          </div>
+          <div class="card">
+            <h3>Windows</h3>
+            <ol>
+              <li>Kör den nedladdade installationsfilen.</li>
+              <li>Visas "Windows skyddade datorn"? Klicka <b>Mer information</b> och sedan <b>Kör ändå</b>.</li>
+              <li>Säljtipset använder grafikkortet om det finns, annars processorn.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        Säljtipset · Transkribering med KB-Whisper (KBLab) · Säljtips från Claude eller ChatGPT ·
+        <a id="source-link" href="#">Källkod</a>
+      </footer>
+    </div>
+
+    <script>
+      // Find the newest release's installers through the GitHub API, so the page never needs
+      // editing when a new version is published.
+      (function () {
+        var repo = document.querySelector('meta[name="repo"]').content;
+        var base = "https://github.com/" + repo;
+        var releases = base + "/releases/latest";
+        document.getElementById("releases-link").href = base + "/releases";
+        document.getElementById("source-link").href = base;
+        ["dl-mac-arm", "dl-mac-intel", "dl-win"].forEach(function (id) {
+          document.getElementById(id).href = releases;
+        });
+
+        var isWindows = /Windows/.test(navigator.userAgent);
+        if (isWindows) {
+          var win = document.getElementById("dl-win");
+          win.classList.add("primary");
+          document.getElementById("dl-mac-arm").classList.remove("primary");
+          win.parentNode.insertBefore(win, win.parentNode.firstChild);
+        }
+
+        fetch("https://api.github.com/repos/" + repo + "/releases/latest")
+          .then(function (r) {
+            if (!r.ok) throw new Error(r.status);
+            return r.json();
+          })
+          .then(function (rel) {
+            var find = function (re) {
+              var a = (rel.assets || []).find(function (x) { return re.test(x.name); });
+              return a && a.browser_download_url;
+            };
+            var macArm = find(/aarch64\.dmg$/);
+            var macIntel = find(/x64\.dmg$/);
+            var win = find(/x64-setup\.exe$/) || find(/\.msi$/);
+            if (macArm) document.getElementById("dl-mac-arm").href = macArm;
+            if (win) document.getElementById("dl-win").href = win;
+            if (macIntel) {
+              document.getElementById("dl-mac-intel").href = macIntel;
+              document.getElementById("intel").hidden = false;
+            }
+            var date = new Date(rel.published_at).toLocaleDateString("sv-SE", { day: "numeric", month: "long", year: "numeric" });
+            document.getElementById("meta").textContent =
+              "Version " + rel.tag_name.replace(/^v/, "") + " · " + date + " · Gratis för macOS 12+ och Windows 10/11";
+          })
+          .catch(function () {
+            document.getElementById("meta").innerHTML = 'Se alla versioner på <a href="' + base + '/releases">GitHub</a>.';
+          });
+      })();
+    </script>
+  </body>
+</html>

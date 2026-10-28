@@ -1,0 +1,73 @@
+[package]
+name = "saljtipset"
+version = "0.1.0"
+description = "Säljtipset – lokal transkribering av säljsamtal och säljtips från Claude"
+authors = ["Säljtipset"]
+edition = "2024"
+
+[lib]
+# The `_lib` suffix avoids a name clash between the lib and the bin on Windows,
+# see https://github.com/rust-lang/cargo/issues/8519
+name = "saljtipset_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+default = []
+# GPU backends for whisper.cpp. CI turns on exactly one per platform:
+#   macOS arm64  -> gpu-metal
+#   Windows      -> gpu-vulkan
+#   macOS x86_64 -> none (CPU + Accelerate)
+gpu-metal = ["whisper-rs/metal"]
+gpu-vulkan = ["whisper-rs/vulkan"]
+# In-app updates. Off by default; see README "Uppdateringar".
+updater = ["dep:tauri-plugin-updater"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-updater = { version = "2", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+whisper-rs = "0.16"
+symphonia = { version = "0.6", features = ["all-codecs", "all-formats"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls", "http2", "charset", "system-proxy"] }
+tokio = { version = "1", features = ["fs", "io-util", "macros", "process", "rt-multi-thread", "time"] }
+futures-util = "0.3"
+sha2 = "0.11"
+hex = "0.4"
+keyring = "4"
+rusqlite = { version = "0.41", features = ["bundled"] }
+docx-rs = "0.4"
+thiserror = "2"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+sysinfo = { version = "0.37", default-features = false, features = ["system"] }
+log = "0.4"
+tempfile = "3"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_System_LibraryLoader", "Win32_Foundation"] }
+
+[dev-dependencies]
+hound = "3"
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true
+
+# Audio decoding, resampling and whisper.cpp are far too slow unoptimized; a debug build
+# would need minutes just to read a long call. Optimize them even in dev builds.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
