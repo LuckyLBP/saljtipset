@@ -29,7 +29,7 @@
   --color-line: rgba(31, 26, 23, 0.09);
   --color-ink: #1f1a17;
   --color-muted: #6e6359;
-  --color-faint: #a0958a;
+  --color-faint: #74695e;
   --color-accent: #8a5a00;
   --color-accent-strong: #6e4700;
   --color-accent-soft: rgba(255, 197, 61, 0.24);
@@ -55,8 +55,8 @@
     --color-hover: rgba(255, 255, 255, 0.07);
     --color-line: rgba(255, 255, 255, 0.09);
     --color-ink: #f5efe6;
-    --color-muted: #b2a79b;
-    --color-faint: #7d7368;
+    --color-muted: #d2c8bb;
+    --color-faint: #a89d90;
     --color-accent: #ffc53d;
     --color-accent-strong: #ffd56b;
     --color-accent-soft: rgba(255, 197, 61, 0.16);
