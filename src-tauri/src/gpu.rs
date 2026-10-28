@@ -104,3 +104,17 @@ pub fn probe() -> (bool, Option<String>) {
 pub const fn compiled_with_gpu() -> bool {
     cfg!(any(feature = "gpu-metal", feature = "gpu-vulkan"))
 }
+
+/// Whether ggml found a GPU to run whisper on. Valid once a whisper context exists (creating
+/// one loads the backends). False on a PC whose Vulkan sees no usable device.
+pub fn device_found() -> bool {
+    use whisper_rs::whisper_rs_sys as sys;
+    // SAFETY: read-only queries of ggml's device registry.
+    unsafe {
+        (0..sys::ggml_backend_dev_count()).any(|i| {
+            let kind = sys::ggml_backend_dev_type(sys::ggml_backend_dev_get(i));
+            kind == sys::ggml_backend_dev_type_GGML_BACKEND_DEVICE_TYPE_GPU
+                || kind == sys::ggml_backend_dev_type_GGML_BACKEND_DEVICE_TYPE_IGPU
+        })
+    }
+}

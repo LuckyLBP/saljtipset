@@ -40,10 +40,18 @@ pub struct Options {
 
 impl Default for Options {
     fn default() -> Self {
-        let cores = std::thread::available_parallelism().map_or(4, |n| n.get());
-        Self { use_gpu: crate::gpu::compiled_with_gpu(), threads: cores.clamp(1, 8) }
+        // Physical cores, not hyperthreads: ggml's threads wait for each other, so extra
+        // logical cores (or slow efficiency cores) make it slower, not faster.
+        let cores = sysinfo::System::physical_core_count()
+            .or_else(|| std::thread::available_parallelism().ok().map(|n| n.get()))
+            .unwrap_or(4);
+        Self { use_gpu: crate::gpu::compiled_with_gpu(), threads: cores.clamp(1, MAX_THREADS) }
     }
 }
+
+/// On an M4 Pro (CPU only), "Bäst" ran 20% faster on 8 threads than 4; "Lätt" was a bit
+/// faster on 4. Physical cores up to 8 suits the bigger models people pick.
+const MAX_THREADS: usize = 8;
 
 pub struct Output {
     pub segments: Vec<Segment>,
@@ -125,6 +133,8 @@ pub fn transcribe_file(
     if cancel.load(Ordering::Relaxed) {
         return Err(TranscribeError::Cancelled);
     }
+    // A Vulkan build on a PC without a usable GPU runs on the CPU; plan for what whisper got.
+    let opts = &Options { use_gpu: opts.use_gpu && crate::gpu::device_found(), threads: opts.threads };
 
     let mut per_channel = Vec::with_capacity(n_channels);
     for (ch, samples) in decoded.channels.into_iter().enumerate() {

@@ -33,7 +33,7 @@ tauri-plugin-clipboard-manager = "2"
 tauri-plugin-updater = { version = "2", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-whisper-rs = "0.16"
+whisper-rs = { version = "0.16", features = ["raw-api"] } # raw-api: ggml device queries (gpu.rs)
 symphonia = { version = "0.6", features = ["all-codecs", "all-formats"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls", "http2", "charset", "system-proxy"] }
 tokio = { version = "1", features = ["fs", "io-util", "macros", "process", "rt-multi-thread", "time"] }
