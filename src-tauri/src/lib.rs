@@ -130,6 +130,8 @@ struct AppInfo {
     data_dir: String,
     /// False until the user has been through onboarding.
     onboarded: bool,
+    /// Built with in-app updates (the `updater` feature).
+    updater_enabled: bool,
     profile: people::Profile,
 }
 
@@ -197,6 +199,7 @@ async fn get_app_info(app: AppHandle, state: State<'_, AppState>) -> CmdResult<A
             use_gpu: state.use_gpu(),
         },
         onboarded: state.profile().is_some(),
+        updater_enabled: cfg!(feature = "updater"),
         profile: state.profile().unwrap_or_default(),
         gpu_compiled: gpu::compiled_with_gpu(),
         gpu_notice: state.gpu_notice.lock().unwrap().clone(),

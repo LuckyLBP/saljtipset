@@ -118,6 +118,10 @@ export default function SettingsView({
           <DeleteAll onDeleted={onDataDeleted} />
         </Group>
 
+        <Group title="Uppdateringar">
+          <UpdateCard info={info} />
+        </Group>
+
         <p className="text-center text-[12px] text-muted">Säljtipset {info.version}</p>
       </div>
     </div>
@@ -133,6 +137,60 @@ function Group({ title, description, children }: { title: string; description?: 
       </div>
       {children}
     </section>
+  );
+}
+
+function UpdateCard({ info }: { info: AppInfo }) {
+  const [state, setState] = useState<
+    { kind: "idle" } | { kind: "checking" } | { kind: "latest" } | { kind: "found"; version: string } | { kind: "installing" } | { kind: "error"; text: string }
+  >({ kind: "idle" });
+  const check = async () => {
+    setState({ kind: "checking" });
+    try {
+      const v = await api.checkUpdate();
+      setState(v ? { kind: "found", version: v } : { kind: "latest" });
+    } catch (e) {
+      setState({ kind: "error", text: errorText(e) });
+    }
+  };
+  const install = async () => {
+    setState({ kind: "installing" });
+    try {
+      await api.installUpdate(); // restarts the app on success
+    } catch (e) {
+      setState({ kind: "error", text: errorText(e) });
+    }
+  };
+  if (!info.updaterEnabled) {
+    return (
+      <Card className="px-4 py-3 text-[12.5px] text-muted">
+        Version {info.version}. Den här versionen är byggd utan automatiska uppdateringar.
+      </Card>
+    );
+  }
+  return (
+    <Card className="flex items-center justify-between gap-4 px-4 py-3">
+      <div>
+        <div className="text-[13px] font-medium">Version {info.version}</div>
+        <div className={`text-[12px] ${state.kind === "error" ? "text-danger" : state.kind === "found" ? "text-accent" : "text-muted"}`}>
+          {state.kind === "idle" && "Säljtipset letar efter nya versioner när appen startar."}
+          {state.kind === "checking" && "Letar…"}
+          {state.kind === "latest" && "Du har den senaste versionen."}
+          {state.kind === "found" && `Version ${state.version} finns.`}
+          {state.kind === "installing" && "Laddar ner och installerar. Appen startar om."}
+          {state.kind === "error" && state.text}
+        </div>
+      </div>
+      {state.kind === "found" || state.kind === "installing" ? (
+        <Button variant="primary" onClick={install} disabled={state.kind === "installing"}>
+          {state.kind === "installing" ? <Spinner /> : "Uppdatera nu"}
+        </Button>
+      ) : (
+        <Button onClick={check} disabled={state.kind === "checking"}>
+          {state.kind === "checking" ? <Spinner /> : "Sök efter uppdateringar"}
+        </Button>
+      )}
+    </Card>
   );
 }
 

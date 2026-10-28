@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, type AppInfo, errorText, type Gender, type Profile } from "../api";
-import { Mark, TAGLINE, Wordmark } from "../brand";
+import { TAGLINE, Wordmark } from "../brand";
+import { Bubbe } from "../mascot";
 import { Button, ErrorNote, Icon } from "../ui";
 
 /** First run: who you are, so the transcript can say who's who and the AI knows what you sell. */
@@ -29,7 +30,7 @@ export default function Onboarding({ info, onDone }: { info: AppInfo; onDone: ()
       <div className="flex flex-1 items-center justify-center px-10 pb-12">
         <div className="w-full max-w-[520px] space-y-7">
           <div className="flex flex-col items-center gap-3 text-center">
-            <Mark size={64} />
+            <Bubbe size={112} />
             <Wordmark size={28} />
             <p className="text-[13px] text-muted">{TAGLINE}</p>
           </div>

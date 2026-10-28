@@ -98,6 +98,7 @@ export interface AppInfo {
   version: string;
   dataDir: string;
   onboarded: boolean;
+  updaterEnabled: boolean;
   profile: Profile;
 }
 

@@ -1,5 +1,6 @@
 import type { AppInfo } from "../api";
-import { Mark, TAGLINE, Wordmark } from "../brand";
+import { TAGLINE, Wordmark } from "../brand";
+import { Bubbe } from "../mascot";
 import ModelPicker from "./ModelPicker";
 
 export default function Setup({ info, onDone }: { info: AppInfo; onDone: () => void }) {
@@ -9,7 +10,7 @@ export default function Setup({ info, onDone }: { info: AppInfo; onDone: () => v
       <div className="flex flex-1 items-center justify-center px-10 pb-12">
         <div className="w-full max-w-3xl space-y-8">
           <div className="flex flex-col items-center gap-3 text-center">
-            <Mark size={72} />
+            <Bubbe size={112} />
             <Wordmark size={30} />
             <p className="text-[13px] text-muted">{TAGLINE}</p>
           </div>

@@ -211,17 +211,31 @@ instead.
 - *Windows:* Om "Windows skyddade datorn" (SmartScreen) visas: klicka **Mer information** och sedan
   **Kör ändå**.
 
-### Updates (optional)
+### Updates
 
-Off by default. To turn on in-app updates:
+In-app updates are built with the `updater` feature and `src-tauri/tauri.updater.conf.json`, which
+holds the public key and points at `https://github.com/LuckyLBP/saljtipset/releases/latest/download/latest.json`.
+The app checks at start and every six hours, shows a banner when a new version exists, and has
+**Sök efter uppdateringar** under Inställningar. Updates are only installed if they are signed with
+the private key.
 
-1. `pnpm tauri signer generate -w ~/.tauri/saljtipset.key` and keep the private key safe.
-2. Put the public key and your release URL in `src-tauri/tauri.updater.conf.json`.
-3. Add the secrets `TAURI_SIGNING_PRIVATE_KEY` (and `_PASSWORD`) and the repository variable
-   `ENABLE_UPDATER=true`.
+- The key pair was made with `pnpm tauri signer generate`; the private key is in
+  `~/.tauri/saljtipset.key` on the developer's Mac. Keep a backup somewhere safe: without it,
+  installed apps can't be updated anymore.
+- CI needs the secrets `TAURI_SIGNING_PRIVATE_KEY` (the key file's contents) and
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (empty), and the repository variable `ENABLE_UPDATER=true`.
+- To release: bump `version` in `src-tauri/tauri.conf.json`, `package.json` and `src-tauri/Cargo.toml`,
+  push a tag `vX.Y.Z`, then **publish** the draft release. Apps pick it up from `latest.json`.
+- A build made without the updater (like the very first 0.1.0) can't update itself; install the
+  first updater-enabled version by hand once.
 
-CI then builds with `--features updater`, signs the update bundles and uploads `latest.json`. The app
-checks on start and shows a banner when a new version exists.
+## Brand
+
+The mascot is **Bubbe**, a speech bubble with a headset (`src/mascot.tsx`), drawn as SVG and
+animated with CSS in four moods: idle (breathes, blinks), listening (nods while transcribing),
+thinking (the spark circles while the AI works) and cheer (bounces when tips are ready). It respects
+the OS "Reduce motion" setting. The app icon is Bubbe on a green glass tile; the wordmark is
+"Säljtipset" in SF Pro Rounded.
 
 ## Windows notes
 

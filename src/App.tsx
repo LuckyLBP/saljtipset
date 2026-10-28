@@ -48,7 +48,10 @@ export default function App() {
     // A transcription may still be running if the window was reloaded.
     api.currentJob().then((id) => id && setJob({ callId: id, phase: "transcribing", percent: 0, segments: [] }));
     // Only does anything in builds with the updater turned on; offline is fine.
-    api.checkUpdate().then((v) => v && setUpdate({ version: v })).catch(() => {});
+    const check = () => api.checkUpdate().then((v) => v && setUpdate((u) => u ?? { version: v })).catch(() => {});
+    check();
+    const timer = setInterval(check, 6 * 60 * 60 * 1000);
+    return () => clearInterval(timer);
   }, [refreshInfo]);
 
   useEffect(() => {

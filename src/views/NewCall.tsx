@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open } from "@tauri-apps/plugin-dialog";
 import { AUDIO_EXTENSIONS, errorText } from "../api";
-import { Mark, TAGLINE } from "../brand";
+import { TAGLINE } from "../brand";
+import { Bubbe } from "../mascot";
 import { Button, ErrorNote, Icon } from "../ui";
 
 /** The empty state: drop a call (or pick a file) to start. */
@@ -73,7 +74,7 @@ export default function NewCall({
                 : "border-line bg-surface/60 hover:border-accent/50 hover:bg-surface"
             } ${busy ? "opacity-60" : ""}`}
           >
-            <Mark size={56} />
+            <Bubbe mood={busy ? "listening" : "idle"} size={dragging ? 118 : 104} className="transition-all" />
             <div className="space-y-1">
               <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em]">
                 {busy ? "Ett samtal transkriberas just nu" : "Släpp ett samtal här"}

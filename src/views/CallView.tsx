@@ -17,6 +17,7 @@ import {
 import type { LiveJob, TipsState } from "../App";
 import { Button, ConfirmButton, ErrorNote, Icon, IconButton, Menu, Pill, ProgressBar, Segmented, Spinner } from "../ui";
 import ChatPanel from "./ChatPanel";
+import { Bubbe } from "../mascot";
 
 const PHASE_LABEL = {
   decoding: "Läser in ljudet",
@@ -239,6 +240,10 @@ export default function CallView({
 
       {transcribing && job && (
         <div className="flex items-center gap-3 px-5 pb-3">
+          {/* Bubbe nods along and hops each time a new line arrives. */}
+          <span key={segments.length} className="bubbe-hop -my-2 inline-flex">
+            <Bubbe mood={job.phase === "transcribing" ? "listening" : "thinking"} size={40} />
+          </span>
           <div className="flex-1">
             <ProgressBar value={job.phase === "loading" ? 0 : job.percent} indeterminate={job.phase === "loading"} />
           </div>
@@ -405,7 +410,7 @@ function Overview({
 }) {
   if (state?.running) {
     return (
-      <Empty icon={<Spinner className="h-5 w-5 text-accent" />} title="Tar fram säljtips…">
+      <Empty icon={<Bubbe mood="thinking" size={96} />} title="Tar fram säljtips…">
         AI:n läser samtalet. Bara texten skickas, aldrig ljudet.
       </Empty>
     );
@@ -413,7 +418,7 @@ function Overview({
   if (!tips) {
     return (
       <Empty
-        icon={<Icon.Sparkle />}
+        icon={<Bubbe mood={transcribing ? "listening" : "idle"} size={96} />}
         title={transcribing ? "Säljtipsen kommer sen" : "Inga säljtips än"}
         action={
           transcribing ? null : !hasAi ? (
@@ -441,7 +446,9 @@ function Overview({
 
   return (
     <div className="space-y-8">
-      <section>
+      <section className="relative">
+        {/* Tips that just arrived get a little celebration. */}
+        {state?.tips && <Bubbe mood="cheer" size={56} className="absolute -top-4 right-0" />}
         <h2 className="mb-2 text-[13px] font-semibold text-muted">Sammanfattning</h2>
         <p className="selectable font-display text-[17px] leading-[1.55] tracking-[-0.01em]">{tips.summary}</p>
         {(tips.customerName || tips.customerCompany) && (
@@ -533,7 +540,7 @@ function StatsRow({ stats }: { stats: CallStats }) {
 function Empty({ icon, title, action, children }: { icon: React.ReactNode; title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center gap-3 py-20 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent">{icon}</div>
+      {icon}
       <h2 className="font-display text-[17px] font-semibold tracking-[-0.01em]">{title}</h2>
       <div className="max-w-sm text-[13px] leading-relaxed text-muted">{children}</div>
       {action && <div className="pt-2">{action}</div>}

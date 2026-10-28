@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { api, type ChatMessage, errorText, type Provider, PROVIDER_VENDOR } from "../api";
-import { Mark } from "../brand";
+import { Bubbe } from "../mascot";
 import { Button, ErrorNote, Icon, IconButton } from "../ui";
 
 const SUGGESTIONS = [
@@ -71,9 +71,7 @@ export default function ChatPanel({
         onClick={() => setOpen(true)}
         className="glass rise absolute bottom-5 right-5 z-20 flex h-11 items-center gap-2 rounded-full pl-4 pr-5 text-[13px] font-medium text-ink transition-transform hover:scale-[1.02]"
       >
-        <span className="text-accent">
-          <Icon.Chat />
-        </span>
+        <Bubbe size={30} className="-ml-1.5" />
         Fråga om samtalet
         {messages.length > 0 && <span className="rounded-full bg-accent-soft px-1.5 text-[11px] text-accent">{messages.length / 2}</span>}
       </button>
@@ -83,7 +81,7 @@ export default function ChatPanel({
   return (
     <div className="glass rise absolute bottom-5 right-5 z-20 flex h-[min(600px,calc(100%-40px))] w-[400px] flex-col overflow-hidden rounded-[24px]">
       <div className="flex items-center gap-2.5 px-4 pb-2 pt-3">
-        <Mark size={24} />
+        <Bubbe mood={pending ? "thinking" : "idle"} size={34} />
         <div className="min-w-0 flex-1">
           <div className="text-[13.5px] font-semibold leading-tight">Fråga om samtalet</div>
           {provider && <div className="text-[11px] text-muted">Texten skickas till {PROVIDER_VENDOR[provider]}</div>}
@@ -126,13 +124,14 @@ export default function ChatPanel({
         {pending && (
           <>
             <Bubble role="user">{pending}</Bubble>
-            <Bubble role="assistant">
-              <span className="typing inline-flex gap-1 py-1 text-muted" aria-label="Skriver">
+            <div className="rise flex items-center gap-1.5 text-[12px] text-muted">
+              <Bubbe mood="thinking" size={30} />
+              <span className="typing inline-flex gap-0.5" aria-label="Tänker">
                 <span>●</span>
                 <span>●</span>
                 <span>●</span>
               </span>
-            </Bubble>
+            </div>
           </>
         )}
         {error && <ErrorNote>{error}</ErrorNote>}
