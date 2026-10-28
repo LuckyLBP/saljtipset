@@ -39,12 +39,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Windows paths max out at 260 characters and whisper.cpp's Vulkan shader build nests
-      # deep under target/, so build in a short folder there.
-      - name: Kort byggmapp på Windows
+      - name: Windows-byggmiljö
         if: runner.os == 'Windows'
         shell: bash
-        run: echo 'CARGO_TARGET_DIR=C:\t' >> "$GITHUB_ENV"
+        run: |
+          # Windows paths max out at 260 characters and whisper.cpp's Vulkan shader build
+          # nests deep under target/, so build in a short folder.
+          echo 'CARGO_TARGET_DIR=C:\t' >> "$GITHUB_ENV"
+          # With Visual Studio, the cmake crate replaces CMake's release flags and drops /O2,
+          # which leaves whisper.cpp unoptimized and many times slower. Set them ourselves
+          # (whisper-rs-sys passes CMAKE_* through, and cmake then leaves them alone).
+          for v in C CXX; do for t in RELEASE RELWITHDEBINFO; do
+            echo "CMAKE_${v}_FLAGS_${t}=/O2 /Ob2 /DNDEBUG" >> "$GITHUB_ENV"
+          done; done
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -139,12 +146,19 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      # Windows paths max out at 260 characters and whisper.cpp's Vulkan shader build nests
-      # deep under target/, so build in a short folder there.
-      - name: Kort byggmapp på Windows
+      - name: Windows-byggmiljö
         if: runner.os == 'Windows'
         shell: bash
-        run: echo 'CARGO_TARGET_DIR=C:\t' >> "$GITHUB_ENV"
+        run: |
+          # Windows paths max out at 260 characters and whisper.cpp's Vulkan shader build
+          # nests deep under target/, so build in a short folder.
+          echo 'CARGO_TARGET_DIR=C:\t' >> "$GITHUB_ENV"
+          # With Visual Studio, the cmake crate replaces CMake's release flags and drops /O2,
+          # which leaves whisper.cpp unoptimized and many times slower. Set them ourselves
+          # (whisper-rs-sys passes CMAKE_* through, and cmake then leaves them alone).
+          for v in C CXX; do for t in RELEASE RELWITHDEBINFO; do
+            echo "CMAKE_${v}_FLAGS_${t}=/O2 /Ob2 /DNDEBUG" >> "$GITHUB_ENV"
+          done; done
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -255,7 +269,7 @@ jobs:
 
       # bubbe.exe must start on a fresh Windows, which may lack the Visual C++ runtime
       # (src-tauri/.cargo/config.toml links it in). Fail rather than ship one that needs it.
-      - name: Kontrollera att bubbe.exe inte kräver Visual C++-runtime
+      - name: Kontrollera Windows-bygget (VC++-runtime, optimering)
         if: runner.os == 'Windows'
         shell: bash
         run: |
@@ -270,3 +284,7 @@ jobs:
           if bad:
               sys.exit(f"bubbe.exe kräver {', '.join(bad)}, som saknas på många datorer.")
           EOF
+          # And that whisper.cpp was compiled optimized (see "Windows-byggmiljö").
+          cache=$(ls /c/t/release/build/whisper-rs-sys-*/out/build/CMakeCache.txt | head -1)
+          grep -E '^CMAKE_CXX_FLAGS_RELEASE' "$cache"
+          grep -qE '^CMAKE_CXX_FLAGS_RELEASE:[A-Z]+=.*/O2' "$cache" || { echo "whisper.cpp byggdes utan /O2"; exit 1; }
