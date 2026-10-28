@@ -60,7 +60,7 @@ pub enum TranscribeError {
     #[error("Transkriberingen misslyckades: {0}")]
     Whisper(String),
     #[error(
-        "Grafikdrivrutinen (Vulkan) saknas, så transkriberingen kan inte starta. Installera om Säljtipset eller uppdatera grafikdrivrutinen."
+        "Grafikdrivrutinen (Vulkan) saknas, så transkriberingen kan inte starta. Installera om Bubbe eller uppdatera grafikdrivrutinen."
     )]
     VulkanMissing,
     #[error("Avbrutet")]

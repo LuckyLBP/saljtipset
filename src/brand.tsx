@@ -1,14 +1,14 @@
 import { Bubbe } from "./mascot";
 
 /**
- * Säljtipset brand: Bubbe the mascot (src/mascot.tsx) next to the wordmark, in
- * "tipset-grön". The app icon (src-tauri/icons) is Bubbe on a green glass tile.
+ * Bubbe brand ("Humlan"): Bubbe the bumblebee (src/mascot.tsx) next to the wordmark in
+ * Baloo 2, in honey and charcoal. The app icon (src-tauri/icons) is Bubbe on a charcoal tile.
  */
 
 export function Wordmark({ size = 17 }: { size?: number }) {
   return (
-    <span className="font-display font-semibold tracking-[-0.02em] text-ink" style={{ fontSize: size }}>
-      Säljtipset
+    <span className="font-display font-extrabold tracking-[-0.02em] text-ink" style={{ fontSize: size }}>
+      Bubbe
     </span>
   );
 }

@@ -121,7 +121,7 @@ export default function CallView({
   };
 
   const remove = async () => {
-    const ok = await ask(`"${call?.title}" tas bort från Säljtipset. Ljudfilen påverkas inte.`, {
+    const ok = await ask(`"${call?.title}" tas bort från Bubbe. Ljudfilen påverkas inte.`, {
       title: "Ta bort samtalet?",
       kind: "warning",
       okLabel: "Ta bort",
@@ -257,8 +257,11 @@ export default function CallView({
         </div>
       )}
       {(failed || jobError || error) && (
-        <div className="px-5 pb-3">
-          <ErrorNote>{error ?? jobError ?? call.error ?? "Transkriberingen misslyckades."}</ErrorNote>
+        <div className="flex items-center gap-3 px-5 pb-3">
+          <Bubbe mood="oops" size={44} />
+          <div className="flex-1">
+            <ErrorNote>{error ?? jobError ?? call.error ?? "Transkriberingen misslyckades."}</ErrorNote>
+          </div>
         </div>
       )}
 
@@ -418,7 +421,7 @@ function Overview({
   if (!tips) {
     return (
       <Empty
-        icon={<Bubbe mood={transcribing ? "listening" : "idle"} size={96} />}
+        icon={<Bubbe mood={transcribing ? "listening" : state?.error ? "oops" : "idle"} size={96} interactive={!transcribing} />}
         title={transcribing ? "Säljtipsen kommer sen" : "Inga säljtips än"}
         action={
           transcribing ? null : !hasAi ? (
@@ -530,9 +533,13 @@ function StatsRow({ stats }: { stats: CallStats }) {
           </div>
         ))}
       </div>
-      <p className="text-[11.5px] text-faint">
-        Räknat från transkriberingen{stats.exact ? "" : " med gissade talare"}. Ett vanligt riktmärke är att kunden pratar mer än du.
-      </p>
+      <div className="flex items-center gap-2">
+        <Bubbe mood={you < 50 ? "love" : "idle"} size={36} />
+        <p className="text-[11.5px] text-faint">
+          {you < 50 ? "Snyggt, kunden fick prata mest. " : "Ett vanligt riktmärke är att kunden pratar mer än du. "}
+          Räknat från transkriberingen{stats.exact ? "" : " med gissade talare"}.
+        </p>
+      </div>
     </section>
   );
 }

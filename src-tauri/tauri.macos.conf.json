@@ -4,7 +4,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Säljtipset",
+        "title": "Bubbe",
         "width": 1240,
         "height": 820,
         "minWidth": 940,
@@ -12,10 +12,16 @@
         "dragDropEnabled": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 20, "y": 26 },
+        "trafficLightPosition": {
+          "x": 20,
+          "y": 26
+        },
         "transparent": true,
         "windowEffects": {
-          "effects": ["liquidGlassRegular", "sidebar"],
+          "effects": [
+            "liquidGlassRegular",
+            "sidebar"
+          ],
           "state": "followsWindowActiveState"
         }
       }

@@ -1,6 +1,6 @@
-# Säljtipset
+# Bubbe
 
-Desktop app for macOS and Windows. A salesperson drops in a recording of a sales call; Säljtipset
+Desktop app for macOS and Windows. A salesperson drops in a recording of a sales call; Bubbe
 transcribes it **on the computer** with [KB-Whisper](https://huggingface.co/KBLab) (KBLab's
 Swedish Whisper), shows the transcript with timestamps, and sends **only the text** to an AI
 (Anthropic API key, or the user's own Claude or ChatGPT subscription) for selling points and a chat
@@ -90,12 +90,12 @@ Face's metadata, and are stored in the OS app data folder (`models/`). To switch
 **Inställningar → Talmodell** and download another one or press **Använd** on an installed one;
 **Ta bort** deletes a model from disk.
 
-App data folder: `~/Library/Application Support/com.saljtipset.app` on macOS,
-`%APPDATA%\com.saljtipset.app` on Windows.
+App data folder: `~/Library/Application Support/se.bubbe.desktop` on macOS,
+`%APPDATA%\se.bubbe.desktop` on Windows.
 
 ## AI: tips and chat
 
-Säljtipset can use any of three AI sources. Under **Inställningar → AI för säljtips och chatt** the
+Bubbe can use any of three AI sources. Under **Inställningar → AI för säljtips och chatt** the
 user picks one, or leaves it on **Automatiskt** (API key first, then a Claude subscription, then
 ChatGPT):
 
@@ -141,7 +141,7 @@ The app only makes these requests:
 
 ## Profile, names and coaching
 
-On first start Säljtipset asks for your name and gender (only used to pick "hon/han/hen" when the
+On first start Bubbe asks for your name and gender (only used to pick "hon/han/hen" when the
 AI writes about you), and optionally your company and what you sell. It's stored in the local
 database and editable under **Inställningar → Om dig**.
 
@@ -175,9 +175,9 @@ Releases from the build workflow start as drafts; the page only sees a release o
 Push a tag like `v0.1.0`. `.github/workflows/build.yml` runs the tests on macOS and Windows, then
 builds:
 
-- `Säljtipset_<version>_aarch64.dmg` (Apple Silicon, Metal)
-- `Säljtipset_<version>_x64.dmg` (Intel, CPU; built on an Intel runner)
-- `Säljtipset_<version>_x64-setup.exe` (NSIS) and `Säljtipset_<version>_x64_sv-SE.msi` (Vulkan with CPU fallback, `vulkan-1.dll` bundled)
+- `Bubbe_<version>_aarch64.dmg` (Apple Silicon, Metal)
+- `Bubbe_<version>_x64.dmg` (Intel, CPU; built on an Intel runner)
+- `Bubbe_<version>_x64-setup.exe` (NSIS) and `Bubbe_<version>_x64_sv-SE.msi` (Vulkan with CPU fallback, `vulkan-1.dll` bundled)
 
 and attaches them to a **draft** GitHub release. Running the workflow by hand keeps them as workflow
 artifacts instead.
@@ -204,8 +204,8 @@ instead.
 
 **Till säljarna: öppna en osignerad version**
 
-- *Mac:* Öppna `.dmg`-filen och dra Säljtipset till Program. Första gången: högerklicka på
-  Säljtipset i Program och välj **Öppna**, och sedan **Öppna** igen. Om macOS säger att appen
+- *Mac:* Öppna `.dmg`-filen och dra Bubbe till Program. Första gången: högerklicka på
+  Bubbe i Program och välj **Öppna**, och sedan **Öppna** igen. Om macOS säger att appen
   "är skadad" eller inte kan öppnas: gå till **Systeminställningar → Integritet och säkerhet**, scrolla
   ner och klicka **Öppna ändå**.
 - *Windows:* Om "Windows skyddade datorn" (SmartScreen) visas: klicka **Mer information** och sedan
@@ -231,11 +231,19 @@ the private key.
 
 ## Brand
 
-The mascot is **Bubbe**, a speech bubble with a headset (`src/mascot.tsx`), drawn as SVG and
-animated with CSS in four moods: idle (breathes, blinks), listening (nods while transcribing),
-thinking (the spark circles while the AI works) and cheer (bounces when tips are ready). It respects
-the OS "Reduce motion" setting. The app icon is Bubbe on a green glass tile; the wordmark is
-"Säljtipset" in SF Pro Rounded.
+The app was called Säljtipset before 0.2.0. On first start Bubbe moves the old data folder
+(`com.saljtipset.app`) and the Keychain entry over, so models, calls and the API key carry on.
+
+The brand direction is "Humlan": honey yellow `#FFC53D`, charcoal `#1F1A17`, raspberry
+`#E5486B` on cream, with Baloo 2 (bundled, OFL) for the wordmark and headings. Honey is only
+used as a fill; readable accent text uses a dark amber in light mode.
+
+The mascot is **Bubbe the bumblebee** with a headset (`src/mascot.tsx`), drawn as SVG and
+animated with CSS. Moods: idle, listening (nods while transcribing), thinking (antennae wiggle,
+a spark circles), cheer (tips ready), hello, surprised (a file dragged over), oops (errors),
+sleepy (after 90 s idle), flying (downloading) and love (you talked less than the customer).
+The larger Bubbe follows the cursor with its eyes and giggles when clicked. Everything holds
+still with the OS "Reduce motion" setting. The app icon is Bubbe on a charcoal tile.
 
 ## Windows notes
 

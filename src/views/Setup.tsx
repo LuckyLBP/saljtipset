@@ -10,7 +10,7 @@ export default function Setup({ info, onDone }: { info: AppInfo; onDone: () => v
       <div className="flex flex-1 items-center justify-center px-10 pb-12">
         <div className="w-full max-w-3xl space-y-8">
           <div className="flex flex-col items-center gap-3 text-center">
-            <Bubbe size={112} />
+            <Bubbe size={112} interactive />
             <Wordmark size={30} />
             <p className="text-[13px] text-muted">{TAGLINE}</p>
           </div>
@@ -18,7 +18,7 @@ export default function Setup({ info, onDone }: { info: AppInfo; onDone: () => v
             <div className="space-y-1.5">
               <h1 className="font-display text-[20px] font-semibold tracking-[-0.015em]">Ladda ner talmodellen</h1>
               <p className="max-w-2xl text-[13px] leading-relaxed text-muted">
-                Säljtipset skriver ut dina samtal med KB-Whisper, en svensk talmodell från Kungliga biblioteket. Modellen
+                Bubbe skriver ut dina samtal med KB-Whisper, en svensk talmodell från Kungliga biblioteket. Modellen
                 körs på din dator, så ljudet lämnar aldrig datorn. Den behöver bara laddas ner en gång.
               </p>
             </div>

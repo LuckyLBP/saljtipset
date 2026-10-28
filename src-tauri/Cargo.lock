@@ -436,6 +436,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "bubbe"
+version = "0.2.0"
+dependencies = [
+ "chrono",
+ "docx-rs",
+ "futures-util",
+ "hex",
+ "hound",
+ "keyring",
+ "log",
+ "reqwest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "symphonia",
+ "sysinfo",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tauri-plugin-updater",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "uuid",
+ "whisper-rs",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3947,38 +3979,6 @@ name = "rustversion"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
-
-[[package]]
-name = "saljtipset"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "docx-rs",
- "futures-util",
- "hex",
- "hound",
- "keyring",
- "log",
- "reqwest",
- "rusqlite",
- "serde",
- "serde_json",
- "sha2 0.11.1",
- "symphonia",
- "sysinfo",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tauri-plugin-updater",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "uuid",
- "whisper-rs",
- "windows-sys 0.61.2",
-]
 
 [[package]]
 name = "same-file"

@@ -34,7 +34,7 @@ export default function Sidebar({
         <button
           onClick={() => onNavigate({ name: "new" })}
           className={`flex h-9 w-full items-center justify-center gap-1.5 rounded-full text-[13px] font-medium shadow-sm transition-colors ${
-            view.name === "new" ? "bg-accent text-on-accent" : "bg-accent text-on-accent hover:bg-accent-strong"
+            view.name === "new" ? "bg-honey text-on-accent" : "bg-honey text-on-accent hover:bg-honey-strong"
           }`}
         >
           <Icon.Plus /> Nytt samtal

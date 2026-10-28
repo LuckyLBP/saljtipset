@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type AppInfo, type DownloadProgress, errorText, formatBytes, type ModelId, onDownload } from "../api";
 import { Button, ErrorNote, ProgressBar } from "../ui";
+import { Bubbe } from "../mascot";
 
 /** Model cards with download, used by both the first-run setup and Settings. */
 export default function ModelPicker({
@@ -166,9 +167,12 @@ function DownloadBar({ progress }: { progress: DownloadProgress | null }) {
     label = "Kontrollerar filen…";
   }
   return (
-    <div className="space-y-1">
+    <div className="flex items-center gap-3">
+      <Bubbe mood={progress?.phase === "verifying" ? "thinking" : "flying"} size={40} />
+      <div className="flex-1 space-y-1">
       <ProgressBar value={pct} indeterminate={!progress || progress.phase === "verifying"} />
       <div className="text-[11.5px] text-muted">{label}</div>
+      </div>
     </div>
   );
 }

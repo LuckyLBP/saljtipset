@@ -92,7 +92,7 @@ export default function SettingsView({
         <Group title="Integritet">
           <Card className="space-y-3 p-4 text-[13px] leading-relaxed">
             <p>
-              <strong>Ljudet lämnar aldrig din dator.</strong> Säljtipset läser ljudfilen där den ligger och gör ingen kopia av
+              <strong>Ljudet lämnar aldrig din dator.</strong> Bubbe läser ljudfilen där den ligger och gör ingen kopia av
               den. Transkriberingen sker helt på din dator.
             </p>
             <p>Appen gör bara två saker över internet:</p>
@@ -122,7 +122,7 @@ export default function SettingsView({
           <UpdateCard info={info} />
         </Group>
 
-        <p className="text-center text-[12px] text-muted">Säljtipset {info.version}</p>
+        <p className="text-center text-[12px] text-muted">Bubbe {info.version}</p>
       </div>
     </div>
   );
@@ -173,7 +173,7 @@ function UpdateCard({ info }: { info: AppInfo }) {
       <div>
         <div className="text-[13px] font-medium">Version {info.version}</div>
         <div className={`text-[12px] ${state.kind === "error" ? "text-danger" : state.kind === "found" ? "text-accent" : "text-muted"}`}>
-          {state.kind === "idle" && "Säljtipset letar efter nya versioner när appen startar."}
+          {state.kind === "idle" && "Bubbe letar efter nya versioner när appen startar."}
           {state.kind === "checking" && "Letar…"}
           {state.kind === "latest" && "Du har den senaste versionen."}
           {state.kind === "found" && `Version ${state.version} finns.`}
@@ -275,7 +275,7 @@ function ProviderCard({ info, onChanged }: { info: AppInfo; onChanged: () => voi
           <input type="radio" name="ai-provider" checked={info.aiProvider === o.id} onChange={() => choose(o.id)} className="peer sr-only" />
           <span
             className={`mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] ${
-              info.aiProvider === o.id ? "border-accent bg-accent text-on-accent" : "border-black/20 dark:border-white/25"
+              info.aiProvider === o.id ? "border-accent bg-honey text-on-accent" : "border-black/20 dark:border-white/25"
             }`}
           >
             {info.aiProvider === o.id && <Icon.Check />}
@@ -441,7 +441,7 @@ function DeleteAll({ onDeleted }: { onDeleted: () => void }) {
         variant="danger"
         className="shrink-0"
         onClick={async () => {
-          const ok = await ask("Allt som Säljtipset har sparat tas bort. Det går inte att ångra.", {
+          const ok = await ask("Allt som Bubbe har sparat tas bort. Det går inte att ångra.", {
             title: "Radera all data?",
             kind: "warning",
             okLabel: "Radera allt",

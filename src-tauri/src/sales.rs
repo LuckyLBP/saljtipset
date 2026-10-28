@@ -1,6 +1,6 @@
 //! The sales knowledge the AI coaches from, in Swedish.
 //!
-//! Written for Säljtipset from widely used methods (SPIN-style discovery, value before price,
+//! Written for Bubbe from widely used methods (SPIN-style discovery, value before price,
 //! acknowledge/explore/answer for objections, concrete next steps, mapping the decision) and
 //! the objection-handling approach in Anthropic's open-source sales plugin
 //! (github.com/anthropics/knowledge-work-plugins, Apache-2.0): find the real concern, answer it

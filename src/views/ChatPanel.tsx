@@ -81,7 +81,7 @@ export default function ChatPanel({
   return (
     <div className="glass rise absolute bottom-5 right-5 z-20 flex h-[min(600px,calc(100%-40px))] w-[400px] flex-col overflow-hidden rounded-[24px]">
       <div className="flex items-center gap-2.5 px-4 pb-2 pt-3">
-        <Bubbe mood={pending ? "thinking" : "idle"} size={34} />
+        <Bubbe mood={pending ? "thinking" : error ? "oops" : "idle"} size={34} />
         <div className="min-w-0 flex-1">
           <div className="text-[13.5px] font-semibold leading-tight">Fråga om samtalet</div>
           {provider && <div className="text-[11px] text-muted">Texten skickas till {PROVIDER_VENDOR[provider]}</div>}
@@ -158,7 +158,7 @@ export default function ChatPanel({
               onClick={() => send(draft)}
               disabled={!draft.trim() || pending !== null}
               aria-label="Skicka"
-              className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-accent text-on-accent transition-opacity disabled:opacity-30"
+              className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-honey text-on-accent transition-opacity disabled:opacity-30"
             >
               <Icon.Send />
             </button>
@@ -179,7 +179,7 @@ export default function ChatPanel({
 function Bubble({ role, children }: { role: "user" | "assistant"; children: ReactNode }) {
   return role === "user" ? (
     <div className="rise flex justify-end">
-      <div className="selectable max-w-[85%] rounded-[18px] rounded-br-[6px] bg-accent px-3.5 py-2 text-[13px] leading-relaxed text-on-accent">
+      <div className="selectable max-w-[85%] rounded-[18px] rounded-br-[6px] bg-honey px-3.5 py-2 text-[13px] leading-relaxed text-on-accent">
         {children}
       </div>
     </div>

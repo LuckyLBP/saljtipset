@@ -9,9 +9,9 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
-use saljtipset_lib::audio;
-use saljtipset_lib::transcribe::{self, ContextCache, Phase, Sink};
-use saljtipset_lib::transcript::{Segment, format_for_copy};
+use bubbe_lib::audio;
+use bubbe_lib::transcribe::{self, ContextCache, Phase, Sink};
+use bubbe_lib::transcript::{Segment, format_for_copy};
 
 fn fixture(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(name)

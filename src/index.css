@@ -1,65 +1,72 @@
 @import "tailwindcss";
+@import "@fontsource/baloo-2/600.css";
+@import "@fontsource/baloo-2/800.css";
 
 /*
- * Säljtipset design tokens.
- * Brand: "tipset-grön", a deep green-teal, with a bright mint for highlights.
- * On macOS the window itself is Liquid Glass (tauri.macos.conf.json): the sidebar is left
- * transparent so the glass shows through, the content sits on a near-opaque layer, and
- * floating controls use the .glass material below. Dark mode follows the OS.
+ * Bubbe design tokens: "Humlan".
+ * Honey yellow for fills (buttons, highlights, selection), charcoal ink, raspberry for the
+ * second speaker, on cream. Honey is too light to read as text on cream, so readable accent
+ * text uses a dark amber ("accent"); in dark mode honey itself is the text accent.
+ * On macOS the window is Liquid Glass (tauri.macos.conf.json): the sidebar is transparent so
+ * the glass shows through, the content sits on a near-opaque layer, and floating controls use
+ * the .glass material. Dark mode follows the OS or the theme setting.
  */
 @theme {
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-  --font-display: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI Variable Display", system-ui, sans-serif;
+  --font-display: "Baloo 2", ui-rounded, "SF Pro Rounded", -apple-system, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 
-  --color-brand: #0b7a68;
-  --color-brand-bright: #34c4a0;
+  --color-honey: #ffc53d;
+  --color-honey-strong: #f5b416;
+  --color-raspberry: #e5486b;
 
-  --color-window: #f2f3f1;
-  --color-sidebar: #ebedea;
-  --color-content: #fbfbfa;
+  --color-window: #fbf3df;
+  --color-sidebar: #f6ecd3;
+  --color-content: #fffcf4;
   --color-surface: #ffffff;
-  --color-sunken: rgba(0, 0, 0, 0.045);
-  --color-hover: rgba(0, 0, 0, 0.05);
-  --color-line: rgba(0, 0, 0, 0.08);
-  --color-ink: #16201d;
-  --color-muted: #6b7471;
-  --color-faint: #9aa29f;
-  --color-accent: #0b7a68;
-  --color-accent-strong: #08604f;
-  --color-accent-soft: rgba(11, 122, 104, 0.11);
-  --color-on-accent: #ffffff;
-  --color-speaker-a: #0b7a68;
-  --color-speaker-b: #b5641a;
+  --color-sunken: rgba(31, 26, 23, 0.05);
+  --color-hover: rgba(31, 26, 23, 0.06);
+  --color-line: rgba(31, 26, 23, 0.09);
+  --color-ink: #1f1a17;
+  --color-muted: #6e6359;
+  --color-faint: #a0958a;
+  --color-accent: #8a5a00;
+  --color-accent-strong: #6e4700;
+  --color-accent-soft: rgba(255, 197, 61, 0.24);
+  --color-on-accent: #1f1a17;
+  --color-speaker-a: #8a5a00;
+  --color-speaker-b: #b8324f;
   --color-danger: #c4321f;
   --color-danger-soft: rgba(196, 50, 31, 0.09);
-  --color-mark: rgba(52, 196, 160, 0.28);
-  --color-glass: rgba(255, 255, 255, 0.72);
+  --color-mark: rgba(255, 197, 61, 0.4);
+  --color-glass: rgba(255, 252, 244, 0.72);
   --color-glass-line: rgba(255, 255, 255, 0.7);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-window: #151817;
-    --color-sidebar: #1b1f1e;
-    --color-content: #161a19;
-    --color-surface: #1f2423;
+    --color-honey: #ffc53d;
+    --color-honey-strong: #ffd56b;
+    --color-window: #171411;
+    --color-sidebar: #1d1915;
+    --color-content: #1a1714;
+    --color-surface: #24201b;
     --color-sunken: rgba(255, 255, 255, 0.06);
     --color-hover: rgba(255, 255, 255, 0.07);
     --color-line: rgba(255, 255, 255, 0.09);
-    --color-ink: #e9eeec;
-    --color-muted: #9ba5a1;
-    --color-faint: #6c7672;
-    --color-accent: #4fd1b0;
-    --color-accent-strong: #74dcc1;
-    --color-accent-soft: rgba(79, 209, 176, 0.14);
-    --color-on-accent: #062a23;
-    --color-speaker-a: #5fd6b8;
-    --color-speaker-b: #f0ac62;
+    --color-ink: #f5efe6;
+    --color-muted: #b2a79b;
+    --color-faint: #7d7368;
+    --color-accent: #ffc53d;
+    --color-accent-strong: #ffd56b;
+    --color-accent-soft: rgba(255, 197, 61, 0.16);
+    --color-on-accent: #1f1a17;
+    --color-speaker-a: #ffc53d;
+    --color-speaker-b: #ff7c99;
     --color-danger: #ff8a7a;
     --color-danger-soft: rgba(255, 138, 122, 0.12);
-    --color-mark: rgba(79, 209, 176, 0.25);
-    --color-glass: rgba(40, 46, 44, 0.66);
+    --color-mark: rgba(255, 197, 61, 0.3);
+    --color-glass: rgba(40, 35, 30, 0.68);
     --color-glass-line: rgba(255, 255, 255, 0.1);
   }
 }
@@ -183,6 +190,9 @@ button {
 .bubbe * {
   transform-box: fill-box;
 }
+.bubbe-interactive {
+  cursor: pointer;
+}
 .bubbe-figure {
   transform-origin: 50% 100%;
   animation: bubbe-breathe 3.2s ease-in-out infinite;
@@ -191,18 +201,63 @@ button {
   transform-origin: 50% 50%;
   animation: bubbe-blink 4.6s infinite;
 }
-.bubbe-spark {
-  transform-origin: 50% 50%;
-  animation: bubbe-twinkle 2.4s ease-in-out infinite;
+/* Pupils lean toward the cursor (set by the component when interactive). */
+.bubbe-look {
+  transform: translate(var(--look-x, 0px), var(--look-y, 0px));
+  transition: transform 0.25s ease-out;
 }
-.bubbe-confetti {
-  opacity: 0;
+/* Wings pivot where they meet the body. */
+.bubbe-wing-l {
+  transform-origin: 100% 100%;
+  transform: rotate(-24deg);
+  animation: bubbe-flutter-l 0.9s ease-in-out infinite alternate;
 }
-.bubbe-shadow {
+.bubbe-wing-r {
+  transform-origin: 0% 100%;
+  transform: rotate(24deg);
+  animation: bubbe-flutter-r 0.9s ease-in-out infinite alternate;
+}
+.bubbe-antennae {
+  transform-origin: 50% 100%;
+}
+.bubbe-shadow,
+.bubbe-mouth-o,
+.bubbe-sweat {
   transform-origin: 50% 50%;
 }
 
-/* Transcribing: nod along, as if listening to the call. */
+/* Parts that only some moods show. */
+.bubbe-spark,
+.bubbe-confetti,
+.bubbe-motion,
+.bubbe-zzz,
+.bubbe-hearts,
+.bubbe-sweat,
+.bubbe-eyes-happy,
+.bubbe-eyes-sleepy,
+.bubbe-eyes-heart,
+.bubbe-mouth-o,
+.bubbe-mouth-frown {
+  opacity: 0;
+}
+/* Moods that close or replace the eyes hide the open ones. */
+.bubbe-hello .bubbe-look,
+.bubbe-sleepy .bubbe-look,
+.bubbe-love .bubbe-look {
+  opacity: 0;
+}
+.bubbe-hello .bubbe-eyes-happy,
+.bubbe-sleepy .bubbe-eyes-sleepy,
+.bubbe-love .bubbe-eyes-heart {
+  opacity: 1;
+}
+.bubbe-surprised .bubbe-mouth,
+.bubbe-sleepy .bubbe-mouth,
+.bubbe-oops .bubbe-mouth {
+  opacity: 0;
+}
+
+/* Listening: nod along to the call. */
 .bubbe-listening .bubbe-figure {
   animation: bubbe-nod 0.9s ease-in-out infinite alternate;
 }
@@ -210,21 +265,33 @@ button {
   animation: bubbe-blink 3s infinite;
 }
 
-/* AI working: eyes up, the spark circles the head. */
+/* Thinking: eyes up, antennae wiggle, a spark circles. */
 .bubbe-thinking .bubbe-face {
   transform: translateY(-2px);
 }
+.bubbe-thinking .bubbe-antennae {
+  animation: bubbe-wiggle 0.5s ease-in-out infinite alternate;
+}
 .bubbe-thinking .bubbe-spark {
-  transform-origin: -100% 130%;
+  opacity: 1;
+  transform-origin: -110% 140%;
   animation: bubbe-orbit 2.2s linear infinite;
 }
 .bubbe-thinking .bubbe-figure {
   animation: bubbe-tilt 2.2s ease-in-out infinite;
 }
 
-/* Tips ready: a few happy bounces with sparkles. */
+/* Cheer: happy bounces, wings buzzing, sparkles. */
 .bubbe-cheer .bubbe-figure {
   animation: bubbe-bounce 0.7s cubic-bezier(0.3, 1.6, 0.5, 1) 3;
+}
+.bubbe-cheer .bubbe-wing-l,
+.bubbe-cheer .bubbe-wing-r,
+.bubbe-flying .bubbe-wing-l,
+.bubbe-flying .bubbe-wing-r,
+.bubbe-love .bubbe-wing-l,
+.bubbe-love .bubbe-wing-r {
+  animation-duration: 0.08s;
 }
 .bubbe-cheer .bubbe-shadow {
   animation: bubbe-shadow 0.7s cubic-bezier(0.3, 1.6, 0.5, 1) 3;
@@ -232,13 +299,127 @@ button {
 .bubbe-cheer .bubbe-confetti {
   animation: bubbe-confetti 2.1s ease-out 1 forwards;
 }
-.bubbe-cheer .bubbe-mouth {
-  d: path("M51 64c5 8 13 8 18 0");
+.bubbe-cheer .bubbe-mouth,
+.bubbe-hello .bubbe-mouth,
+.bubbe-love .bubbe-mouth {
+  d: path("M52 72c4 6 12 6 16 0");
+}
+
+/* Hello: a hop and a big wave with the right wing. */
+.bubbe-hello .bubbe-figure {
+  animation: bubbe-bounce 0.8s cubic-bezier(0.3, 1.6, 0.5, 1) 1;
+}
+.bubbe-hello .bubbe-wing-r {
+  animation: bubbe-wave 0.45s ease-in-out infinite alternate;
+}
+
+/* Surprised: a jump, wide eyes, antennae up, O-mouth. */
+.bubbe-surprised .bubbe-figure {
+  animation: bubbe-jump 0.4s cubic-bezier(0.3, 1.8, 0.5, 1) 1;
+}
+.bubbe-surprised .bubbe-eyes {
+  transform: scale(1.18);
+  animation: none;
+}
+.bubbe-surprised .bubbe-antennae {
+  transform: scaleY(1.18);
+}
+.bubbe-surprised .bubbe-mouth-o {
+  opacity: 1;
+}
+
+/* Oops: a little shake, droopy antennae, a frown and a sweat drop. */
+.bubbe-oops .bubbe-figure {
+  animation: bubbe-shake 0.5s ease-in-out 1;
+}
+.bubbe-oops .bubbe-antennae {
+  transform: scaleY(0.82) rotate(4deg);
+}
+.bubbe-oops .bubbe-mouth-frown {
+  opacity: 1;
+}
+.bubbe-oops .bubbe-sweat {
+  opacity: 1;
+  animation: bubbe-drip 2.4s ease-in infinite;
+}
+.bubbe-oops .bubbe-wing-l,
+.bubbe-oops .bubbe-wing-r {
+  animation-duration: 1.6s;
+}
+
+/* Sleepy: slow breathing, resting wings, a small yawn and drifting Zzz. */
+.bubbe-sleepy .bubbe-figure {
+  animation: bubbe-breathe 4.8s ease-in-out infinite;
+}
+.bubbe-sleepy .bubbe-wing-l {
+  animation: none;
+  transform: rotate(-12deg);
+}
+.bubbe-sleepy .bubbe-wing-r {
+  animation: none;
+  transform: rotate(12deg);
+}
+.bubbe-sleepy .bubbe-antennae {
+  transform: rotate(-8deg);
+}
+.bubbe-sleepy .bubbe-mouth-o {
+  opacity: 1;
+  transform: scale(0.55);
+}
+.bubbe-sleepy .bubbe-zzz {
+  opacity: 1;
+}
+.bubbe-sleepy .bubbe-zzz text {
+  opacity: 0;
+  animation: bubbe-z 3s ease-out infinite;
+}
+.bubbe-sleepy .bubbe-z2 {
+  animation-delay: 1s !important;
+}
+.bubbe-sleepy .bubbe-z3 {
+  animation-delay: 2s !important;
+}
+
+/* Flying: hovering up and down with speed lines. */
+.bubbe-flying .bubbe-figure {
+  animation: bubbe-hover 0.9s ease-in-out infinite alternate;
+}
+.bubbe-flying .bubbe-motion {
+  opacity: 1;
+  animation: bubbe-streak 0.6s linear infinite;
+}
+.bubbe-flying .bubbe-shadow {
+  animation: bubbe-shadow 0.9s ease-in-out infinite alternate;
+}
+
+/* Love: heart eyes, a gentle sway and floating hearts. */
+.bubbe-love .bubbe-figure {
+  animation: bubbe-sway 1.2s ease-in-out infinite alternate;
+}
+.bubbe-love .bubbe-eyes-heart {
+  animation: bubbe-pulse 0.6s ease-in-out infinite alternate;
+  transform-origin: 50% 50%;
+}
+.bubbe-love .bubbe-hearts {
+  opacity: 1;
+}
+.bubbe-love .bubbe-hearts path {
+  animation: bubbe-float 1.8s ease-out infinite;
+}
+.bubbe-love .bubbe-h2 {
+  animation-delay: 0.6s !important;
 }
 
 /* A quick hop, e.g. when a new transcript line arrives. Re-trigger by changing the key. */
 .bubbe-hop {
   animation: bubbe-hop 0.35s ease-out;
+}
+
+/* Tiny Bubbe (sidebar, chat): drop the fine details so it stays readable. */
+.bubbe-small .bubbe-shadow,
+.bubbe-small .bubbe-mic,
+.bubbe-small .bubbe-motion {
+  display: none;
 }
 
 @keyframes bubbe-breathe {
@@ -249,9 +430,21 @@ button {
   0%, 92%, 100% { transform: scaleY(1); }
   95% { transform: scaleY(0.1); }
 }
-@keyframes bubbe-twinkle {
-  0%, 100% { transform: scale(1) rotate(0deg); opacity: 1; }
-  50% { transform: scale(0.75) rotate(20deg); opacity: 0.7; }
+@keyframes bubbe-flutter-l {
+  from { transform: rotate(-20deg); }
+  to { transform: rotate(-34deg); }
+}
+@keyframes bubbe-flutter-r {
+  from { transform: rotate(20deg); }
+  to { transform: rotate(34deg); }
+}
+@keyframes bubbe-wave {
+  from { transform: rotate(10deg); }
+  to { transform: rotate(60deg); }
+}
+@keyframes bubbe-wiggle {
+  from { transform: rotate(-6deg); }
+  to { transform: rotate(6deg); }
 }
 @keyframes bubbe-nod {
   from { transform: rotate(-3deg) translateY(0); }
@@ -260,6 +453,10 @@ button {
 @keyframes bubbe-tilt {
   0%, 100% { transform: rotate(-2deg); }
   50% { transform: rotate(2deg); }
+}
+@keyframes bubbe-sway {
+  from { transform: rotate(-4deg); }
+  to { transform: rotate(4deg); }
 }
 @keyframes bubbe-orbit {
   from { transform: rotate(0deg); }
@@ -270,6 +467,27 @@ button {
   45% { transform: translateY(-12px) scale(0.97, 1.03); }
   100% { transform: translateY(0) scale(1, 1); }
 }
+@keyframes bubbe-jump {
+  0% { transform: translateY(0) scale(1.08, 0.92); }
+  50% { transform: translateY(-8px) scale(0.96, 1.05); }
+  100% { transform: translateY(0); }
+}
+@keyframes bubbe-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-3px) rotate(-3deg); }
+  40% { transform: translateX(3px) rotate(3deg); }
+  60% { transform: translateX(-2px) rotate(-2deg); }
+  80% { transform: translateX(2px) rotate(1deg); }
+}
+@keyframes bubbe-hover {
+  from { transform: translateY(0); }
+  to { transform: translateY(-7px); }
+}
+@keyframes bubbe-streak {
+  from { transform: translateX(6px); opacity: 0.2; }
+  50% { opacity: 1; }
+  to { transform: translateX(-6px); opacity: 0.2; }
+}
 @keyframes bubbe-shadow {
   0%, 100% { transform: scale(1); }
   45% { transform: scale(0.7); }
@@ -278,6 +496,25 @@ button {
   0% { opacity: 0; transform: scale(0.6); }
   20% { opacity: 1; transform: scale(1.1); }
   100% { opacity: 0; transform: scale(1.2) translateY(-6px); }
+}
+@keyframes bubbe-drip {
+  0%, 30% { transform: translateY(0); opacity: 1; }
+  90% { transform: translateY(10px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 0; }
+}
+@keyframes bubbe-z {
+  0% { opacity: 0; transform: translate(0, 4px) scale(0.6); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(6px, -8px) scale(1.1); }
+}
+@keyframes bubbe-float {
+  0% { opacity: 0; transform: translateY(4px) scale(0.6); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-14px) scale(1.15); }
+}
+@keyframes bubbe-pulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.15); }
 }
 @keyframes bubbe-hop {
   0% { transform: translateY(0); }
@@ -290,14 +527,9 @@ button {
   .bubbe-hop {
     animation: none !important;
   }
-  .bubbe-cheer .bubbe-confetti {
+  .bubbe-cheer .bubbe-confetti,
+  .bubbe-sleepy .bubbe-zzz text,
+  .bubbe-love .bubbe-hearts path {
     opacity: 1;
   }
-}
-/* Tiny Bubbe (sidebar, chat): drop the fine details so it stays readable. */
-.bubbe-small .bubbe-shadow,
-.bubbe-small circle[fill^="url"],
-.bubbe-small .bubbe-headset path:last-of-type,
-.bubbe-small .bubbe-headset circle {
-  display: none;
 }

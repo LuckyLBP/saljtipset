@@ -6,8 +6,8 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use saljtipset_lib::transcribe::{self, ContextCache, Phase, Sink};
-use saljtipset_lib::transcript::{Segment, format_for_copy};
+use bubbe_lib::transcribe::{self, ContextCache, Phase, Sink};
+use bubbe_lib::transcript::{Segment, format_for_copy};
 
 struct Progress(Mutex<(Instant, i32)>);
 

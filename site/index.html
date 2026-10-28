@@ -6,31 +6,31 @@
     <meta name="color-scheme" content="light dark" />
     <!-- Replaced with "owner/repo" by .github/workflows/pages.yml -->
     <meta name="repo" content="__REPO__" />
-    <title>Säljtipset</title>
-    <meta name="description" content="Säljtipset skriver ut dina säljsamtal på din egen dator och ger dig konkreta säljtips. Ljudet lämnar aldrig datorn." />
+    <title>Bubbe</title>
+    <meta name="description" content="Bubbe skriver ut dina säljsamtal på din egen dator och ger dig konkreta säljtips. Ljudet lämnar aldrig datorn." />
     <link rel="icon" href="favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@800&display=swap" />
     <style>
       :root {
-        --brand: #0b7a68;
-        --brand-bright: #34c4a0;
-        --bg: #f4f5f3;
+        --honey: #ffc53d;
+        --accent-text: #8a5a00;
+        --bg: #fbf3df;
         --surface: #ffffff;
-        --ink: #16201d;
-        --muted: #66706c;
-        --line: rgba(0, 0, 0, 0.08);
-        --on-brand: #ffffff;
-        --glass: rgba(255, 255, 255, 0.7);
+        --ink: #1f1a17;
+        --muted: #6e6359;
+        --line: rgba(31, 26, 23, 0.09);
+        --glass: rgba(255, 252, 244, 0.72);
       }
       @media (prefers-color-scheme: dark) {
         :root {
-          --brand: #4fd1b0;
-          --bg: #121514;
-          --surface: #1c201f;
-          --ink: #e9eeec;
-          --muted: #9ba5a1;
+          --accent-text: #ffc53d;
+          --bg: #171411;
+          --surface: #24201b;
+          --ink: #f5efe6;
+          --muted: #b2a79b;
           --line: rgba(255, 255, 255, 0.09);
-          --on-brand: #062a23;
-          --glass: rgba(34, 40, 38, 0.7);
+          --glass: rgba(40, 35, 30, 0.7);
         }
       }
       * {
@@ -50,14 +50,15 @@
         padding: 0 24px;
       }
       .display {
-        font-family: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", system-ui, sans-serif;
+        font-family: "Baloo 2", ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", system-ui, sans-serif;
+        font-weight: 800;
         letter-spacing: -0.02em;
       }
       .glow {
         position: fixed;
         inset: -30vh -10vw auto;
         height: 80vh;
-        background: radial-gradient(50% 50% at 50% 50%, rgba(52, 196, 160, 0.22), transparent 70%);
+        background: radial-gradient(50% 50% at 50% 50%, rgba(255, 197, 61, 0.28), transparent 70%);
         pointer-events: none;
         z-index: -1;
       }
@@ -101,9 +102,15 @@
         transform-origin: 50% 50%;
         animation: blink 4.6s infinite;
       }
-      .bubbe .spark {
-        transform-origin: 50% 50%;
-        animation: twinkle 2.4s ease-in-out infinite;
+      .bubbe .wing-l {
+        transform-origin: 100% 100%;
+        transform: rotate(-24deg);
+        animation: flutter-l 0.9s ease-in-out infinite alternate;
+      }
+      .bubbe .wing-r {
+        transform-origin: 0% 100%;
+        transform: rotate(24deg);
+        animation: flutter-r 0.9s ease-in-out infinite alternate;
       }
       @keyframes breathe {
         0%, 100% { transform: translateY(0); }
@@ -113,9 +120,13 @@
         0%, 92%, 100% { transform: scaleY(1); }
         95% { transform: scaleY(0.1); }
       }
-      @keyframes twinkle {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(0.75) rotate(20deg); opacity: 0.7; }
+      @keyframes flutter-l {
+        from { transform: rotate(-20deg); }
+        to { transform: rotate(-34deg); }
+      }
+      @keyframes flutter-r {
+        from { transform: rotate(20deg); }
+        to { transform: rotate(34deg); }
       }
       @media (prefers-reduced-motion: reduce) {
         .bubbe * { animation: none !important; }
@@ -159,9 +170,9 @@
         transform: translateY(-1px);
       }
       .btn.primary {
-        background: var(--brand);
-        color: var(--on-brand);
-        box-shadow: 0 8px 24px rgba(11, 122, 104, 0.3);
+        background: var(--honey);
+        color: #1f1a17;
+        box-shadow: 0 8px 24px rgba(214, 150, 0, 0.32);
       }
       .btn svg {
         width: 18px;
@@ -205,8 +216,8 @@
         border-radius: 12px;
         display: grid;
         place-items: center;
-        background: rgba(52, 196, 160, 0.15);
-        color: var(--brand);
+        background: rgba(255, 197, 61, 0.22);
+        color: var(--accent-text);
         margin-bottom: 14px;
       }
       .card h3 {
@@ -254,33 +265,32 @@
     <div class="glow"></div>
     <div class="wrap">
       <header class="top">
-        <a class="logo display" href="./"><img src="icon.png" alt="" />Säljtipset</a>
+        <a class="logo display" href="./"><img src="icon.png" alt="" />Bubbe</a>
         <a class="btn" id="releases-link" href="#" style="height: 36px; font-size: 14px">Alla versioner</a>
       </header>
 
       <section class="hero">
         <svg class="bubbe mark" viewBox="0 0 120 120" aria-label="Bubbe">
-          <defs>
-            <linearGradient id="bb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" /><stop offset="1" stop-color="#dff5ee" /></linearGradient>
-            <radialGradient id="bg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#34c4a0" stop-opacity=".3" /><stop offset="1" stop-color="#34c4a0" stop-opacity="0" /></radialGradient>
-          </defs>
-          <ellipse cx="60" cy="110" rx="30" ry="5" fill="#0b7a68" opacity=".18" />
-          <circle cx="60" cy="62" r="56" fill="url(#bg)" />
+          <defs><clipPath id="stripes"><ellipse cx="60" cy="70" rx="38" ry="36" /></clipPath></defs>
+          <ellipse cx="60" cy="113" rx="28" ry="4.5" fill="#1f1a17" opacity=".16" />
           <g class="fig">
-            <path d="M34 26h52a20 20 0 0 1 20 20v22a20 20 0 0 1-20 20H56l-18 15 3-15h-7a20 20 0 0 1-20-20V46a20 20 0 0 1 20-20Z" fill="url(#bb)" stroke="#0b7a68" stroke-opacity=".18" stroke-width="1.5" />
-            <path d="M30 36c4-5 9-6 16-6" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9" fill="none" />
-            <path d="M26 50c0-22 15-34 34-34s34 12 34 34" fill="none" stroke="#0b5f52" stroke-width="5" stroke-linecap="round" />
-            <rect x="18" y="44" width="11" height="20" rx="5.5" fill="#0b7a68" /><rect x="91" y="44" width="11" height="20" rx="5.5" fill="#0b7a68" />
-            <path d="M24 63c2 10 10 15 22 15" fill="none" stroke="#0b5f52" stroke-width="3" stroke-linecap="round" /><circle cx="47" cy="78" r="3.5" fill="#0b5f52" />
-            <g class="eyes"><ellipse cx="48" cy="54" rx="5.5" ry="7.5" fill="#123d36" /><ellipse cx="72" cy="54" rx="5.5" ry="7.5" fill="#123d36" /><circle cx="50" cy="51" r="2" fill="#fff" /><circle cx="74" cy="51" r="2" fill="#fff" /></g>
-            <ellipse cx="40" cy="66" rx="5" ry="3" fill="#f59a8c" opacity=".45" /><ellipse cx="80" cy="66" rx="5" ry="3" fill="#f59a8c" opacity=".45" />
-            <path d="M53 66c4 5 10 5 14 0" fill="none" stroke="#123d36" stroke-width="3" stroke-linecap="round" />
+            <ellipse class="wing-l" cx="42" cy="28" rx="14" ry="20" fill="#fff" fill-opacity=".85" stroke="#1f1a17" stroke-opacity=".22" stroke-width="1.5" />
+            <ellipse class="wing-r" cx="78" cy="28" rx="14" ry="20" fill="#fff" fill-opacity=".85" stroke="#1f1a17" stroke-opacity=".22" stroke-width="1.5" />
+            <path d="M50 36c-2-8-6-13-12-16M70 36c2-8 6-13 12-16" fill="none" stroke="#1f1a17" stroke-width="2.6" stroke-linecap="round" />
+            <circle cx="37" cy="19" r="3.6" fill="#1f1a17" /><circle cx="83" cy="19" r="3.6" fill="#1f1a17" />
+            <ellipse cx="60" cy="70" rx="38" ry="36" fill="#ffc53d" />
+            <g clip-path="url(#stripes)"><rect x="10" y="86" width="100" height="8" fill="#1f1a17" /><rect x="10" y="100" width="100" height="8" fill="#1f1a17" /></g>
+            <path d="M25 66c0-21 15-33 35-33s35 12 35 33" fill="none" stroke="#1f1a17" stroke-width="3.5" stroke-linecap="round" />
+            <rect x="18" y="60" width="10" height="17" rx="5" fill="#e5486b" /><rect x="92" y="60" width="10" height="17" rx="5" fill="#e5486b" />
+            <path d="M23 76c2 8 9 12 19 12" fill="none" stroke="#1f1a17" stroke-width="2.4" stroke-linecap="round" /><circle cx="43" cy="88" r="3" fill="#e5486b" />
+            <g class="eyes"><ellipse cx="48" cy="62" rx="5" ry="7" fill="#1f1a17" /><ellipse cx="72" cy="62" rx="5" ry="7" fill="#1f1a17" /><circle cx="50" cy="59" r="1.9" fill="#fff" /><circle cx="74" cy="59" r="1.9" fill="#fff" /></g>
+            <ellipse cx="39" cy="73" rx="5" ry="3" fill="#e5486b" opacity=".45" /><ellipse cx="81" cy="73" rx="5" ry="3" fill="#e5486b" opacity=".45" />
+            <path d="M54 73c3 4 9 4 12 0" fill="none" stroke="#1f1a17" stroke-width="2.6" stroke-linecap="round" />
           </g>
-          <path class="spark" d="M100 8c1.2 7 4 9.8 11 11-7 1.2-9.8 4-11 11-1.2-7-4-9.8-11-11 7-1.2 9.8-4 11-11Z" fill="#34c4a0" />
         </svg>
         <h1 class="display">Bättre samtal,<br />ett tips i taget.</h1>
         <p class="lead">
-          Släpp in en inspelning av ett säljsamtal. Säljtipset skriver ut det på din egen dator med en svensk talmodell, visar
+          Släpp in en inspelning av ett säljsamtal. Bubbe skriver ut det på din egen dator med en svensk talmodell, visar
           vad som fungerade och vad du kan säga nästa gång.
         </p>
 
@@ -297,7 +307,7 @@
         <p class="meta" id="meta">Hämtar senaste versionen…</p>
         <p class="meta" id="intel" hidden>Mac med Intel-processor? <a id="dl-mac-intel" href="#">Hämta Intel-versionen</a>.</p>
 
-        <div class="shot"><img src="screenshot.jpg" alt="Säljtipset med säljtips och transkribering" /></div>
+        <div class="shot"><img src="screenshot.jpg" alt="Bubbe med säljtips och transkribering" /></div>
       </section>
 
       <section class="features">
@@ -312,7 +322,7 @@
           <p>KB-Whisper från Kungliga biblioteket förstår svenska samtal, med tidsstämplar och två talare i stereo.</p>
         </div>
         <div class="card">
-          <div class="icon">✦</div>
+          <div class="icon">🐝</div>
           <h3>Säljtips med belägg</h3>
           <p>Vad som fungerade, kundens behov, invändningar och nästa steg, alltid med citat ur samtalet.</p>
         </div>
@@ -329,8 +339,8 @@
           <div class="card">
             <h3>Mac</h3>
             <ol>
-              <li>Öppna den nedladdade .dmg-filen och dra Säljtipset till Program.</li>
-              <li>Högerklicka på Säljtipset i Program och välj <b>Öppna</b>, och sedan <b>Öppna</b> igen.</li>
+              <li>Öppna den nedladdade .dmg-filen och dra Bubbe till Program.</li>
+              <li>Högerklicka på Bubbe i Program och välj <b>Öppna</b>, och sedan <b>Öppna</b> igen.</li>
               <li>Säger macOS att appen inte kan öppnas? Gå till Systeminställningar → Integritet och säkerhet och klicka <b>Öppna ändå</b>.</li>
             </ol>
           </div>
@@ -339,14 +349,14 @@
             <ol>
               <li>Kör den nedladdade installationsfilen.</li>
               <li>Visas "Windows skyddade datorn"? Klicka <b>Mer information</b> och sedan <b>Kör ändå</b>.</li>
-              <li>Säljtipset använder grafikkortet om det finns, annars processorn.</li>
+              <li>Bubbe använder grafikkortet om det finns, annars processorn.</li>
             </ol>
           </div>
         </div>
       </section>
 
       <footer>
-        Säljtipset · Transkribering med KB-Whisper (KBLab) · Säljtips från Claude eller ChatGPT ·
+        Bubbe · Transkribering med KB-Whisper (KBLab) · Säljtips från Claude eller ChatGPT ·
         <a id="source-link" href="#">Källkod</a>
       </footer>
     </div>

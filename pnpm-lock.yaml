@@ -166,6 +166,9 @@ importers:
 
   .:
     dependencies:
+      '@fontsource/baloo-2':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@tauri-apps/api':
         specifier: ^2
         version: 2.12.4
@@ -211,6 +214,9 @@ importers:
         version: 8.3.5(jiti@2.7.0)
 
 packages:
+
+  '@fontsource/baloo-2@5.3.0':
+    resolution: {integrity: sha512-CBuxZ27jvMmD5+KaaPkMWv/yjdRNppVAd5/002yAyvyQyLNL3aZCbkx6gbAT/bjxPd1A0VMdDQjfcELI8chccQ==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -816,6 +822,8 @@ packages:
         optional: true
 
 snapshots:
+
+  '@fontsource/baloo-2@5.3.0': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:

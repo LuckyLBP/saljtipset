@@ -30,7 +30,7 @@ export default function Onboarding({ info, onDone }: { info: AppInfo; onDone: ()
       <div className="flex flex-1 items-center justify-center px-10 pb-12">
         <div className="w-full max-w-[520px] space-y-7">
           <div className="flex flex-col items-center gap-3 text-center">
-            <Bubbe size={112} />
+            <Bubbe mood={step === 1 ? "hello" : "idle"} size={112} interactive />
             <Wordmark size={28} />
             <p className="text-[13px] text-muted">{TAGLINE}</p>
           </div>
@@ -91,7 +91,7 @@ function Steps({ step }: { step: number }) {
   return (
     <div className="flex gap-1.5">
       {[1, 2].map((n) => (
-        <span key={n} className={`h-1 flex-1 rounded-full ${n <= step ? "bg-accent" : "bg-sunken"}`} />
+        <span key={n} className={`h-1 flex-1 rounded-full ${n <= step ? "bg-honey" : "bg-sunken"}`} />
       ))}
     </div>
   );
@@ -137,7 +137,7 @@ export function ProfileFields({
                   type="button"
                   onClick={() => set("gender")(g.value)}
                   className={`h-8 rounded-full px-3.5 text-[13px] font-medium transition-colors ${
-                    profile.gender === g.value ? "bg-accent text-on-accent" : "bg-sunken text-ink hover:bg-hover"
+                    profile.gender === g.value ? "bg-honey text-on-accent" : "bg-sunken text-ink hover:bg-hover"
                   }`}
                 >
                   {g.label}

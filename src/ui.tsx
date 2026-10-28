@@ -3,7 +3,7 @@ import { type ButtonHTMLAttributes, type ReactNode, useEffect, useRef, useState 
 type Variant = "primary" | "secondary" | "plain" | "danger";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-on-accent hover:bg-accent-strong shadow-sm disabled:opacity-45",
+  primary: "bg-honey text-on-accent hover:bg-honey-strong shadow-sm disabled:opacity-45",
   secondary: "bg-surface/80 text-ink border border-line hover:bg-surface shadow-[0_1px_2px_rgba(0,0,0,0.05)] disabled:opacity-45",
   plain: "text-ink hover:bg-hover disabled:opacity-40",
   danger: "bg-surface/80 text-danger border border-line hover:bg-danger-soft disabled:opacity-45",
@@ -138,7 +138,7 @@ export function ProgressBar({ value, indeterminate = false }: { value: number; i
   return (
     <div className="h-1 w-full overflow-hidden rounded-full bg-sunken" role="progressbar" aria-valuenow={Math.round(value)}>
       <div
-        className={`h-full rounded-full bg-accent transition-[width] duration-300 ${indeterminate ? "w-1/3 animate-pulse" : ""}`}
+        className={`h-full rounded-full bg-honey transition-[width] duration-300 ${indeterminate ? "w-1/3 animate-pulse" : ""}`}
         style={indeterminate ? undefined : { width: `${Math.max(0, Math.min(100, value))}%` }}
       />
     </div>
@@ -222,7 +222,7 @@ export function Toggle({
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={`relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors ${checked ? "bg-accent" : "bg-black/15 dark:bg-white/20"}`}
+        className={`relative h-[22px] w-[38px] shrink-0 rounded-full transition-colors ${checked ? "bg-honey" : "bg-black/15 dark:bg-white/20"}`}
       >
         <span
           className={`absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.25)] transition-[left] ${

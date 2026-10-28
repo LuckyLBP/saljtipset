@@ -661,6 +661,25 @@ async fn install_update() -> CmdResult<()> {
     Err("Uppdateringar är inte aktiverade i den här versionen.".into())
 }
 
+/// The app was called Säljtipset (app ID com.saljtipset.app) before 0.2.0. Move its data
+/// folder (speech models, calls, settings) to Bubbe's on first start so nothing is lost.
+fn migrate_from_saljtipset(app_data: &Path) {
+    let Some(parent) = app_data.parent() else { return };
+    let old = parent.join("com.saljtipset.app");
+    if app_data.exists() || !old.is_dir() {
+        return;
+    }
+    if std::fs::rename(&old, app_data).is_ok() {
+        let _ = std::fs::rename(app_data.join("saljtipset.sqlite"), app_data.join("bubbe.sqlite"));
+        for ext in ["-wal", "-shm"] {
+            let _ = std::fs::rename(
+                app_data.join(format!("saljtipset.sqlite{ext}")),
+                app_data.join(format!("bubbe.sqlite{ext}")),
+            );
+        }
+    }
+}
+
 pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -672,15 +691,16 @@ pub fn run() {
     builder
         .setup(|app| {
             let app_data = app.path().app_data_dir()?;
+            migrate_from_saljtipset(&app_data);
             std::fs::create_dir_all(&app_data)?;
             gpu::init(&app_data);
-            let db = Db::open(&app_data.join("saljtipset.sqlite"))?;
+            let db = Db::open(&app_data.join("bubbe.sqlite"))?;
 
             let mut gpu_notice = None;
             if gpu::previous_run_crashed_in_gpu_init() {
                 db.set_setting(SETTING_USE_GPU, "false")?;
                 gpu_notice = Some(
-                    "Säljtipset stängdes oväntat när grafikkortet startades förra gången. Transkriberingen använder nu processorn. Du kan slå på grafikkortet igen under Inställningar."
+                    "Bubbe stängdes oväntat när grafikkortet startades förra gången. Transkriberingen använder nu processorn. Du kan slå på grafikkortet igen under Inställningar."
                         .to_string(),
                 );
             }

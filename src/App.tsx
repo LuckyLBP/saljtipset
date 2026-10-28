@@ -116,7 +116,7 @@ export default function App() {
   if (loadError) {
     return (
       <div className="content flex h-full items-center justify-center p-8">
-        <ErrorNote>Säljtipset kunde inte starta: {loadError}</ErrorNote>
+        <ErrorNote>Bubbe kunde inte starta: {loadError}</ErrorNote>
       </div>
     );
   }
@@ -148,7 +148,7 @@ export default function App() {
         {update && (
           <div className="flex items-center gap-3 border-b border-line bg-accent-soft px-5 py-2 text-[12.5px]">
             <span className="flex-1">
-              {update.error ?? `Säljtipset ${update.version} finns. Uppdateringen tar en minut och appen startar om.`}
+              {update.error ?? `Bubbe ${update.version} finns. Uppdateringen tar en minut och appen startar om.`}
             </span>
             <Button
               variant="primary"

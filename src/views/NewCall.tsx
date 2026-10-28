@@ -18,6 +18,27 @@ export default function NewCall({
 }) {
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bubbe says hello when the screen appears and dozes off after a while without activity.
+  const [greeting, setGreeting] = useState(true);
+  const [asleep, setAsleep] = useState(false);
+  useEffect(() => {
+    const hello = setTimeout(() => setGreeting(false), 2600);
+    let nap = setTimeout(() => setAsleep(true), 90_000);
+    const wake = () => {
+      setAsleep(false);
+      clearTimeout(nap);
+      nap = setTimeout(() => setAsleep(true), 90_000);
+    };
+    window.addEventListener("mousemove", wake);
+    window.addEventListener("keydown", wake);
+    return () => {
+      clearTimeout(hello);
+      clearTimeout(nap);
+      window.removeEventListener("mousemove", wake);
+      window.removeEventListener("keydown", wake);
+    };
+  }, []);
+  const mood = busy ? "listening" : dragging ? "surprised" : error ? "oops" : greeting ? "hello" : asleep ? "sleepy" : "idle";
   const startRef = useRef<(p: string) => void>(() => {});
 
   const start = async (path: string) => {
@@ -74,7 +95,7 @@ export default function NewCall({
                 : "border-line bg-surface/60 hover:border-accent/50 hover:bg-surface"
             } ${busy ? "opacity-60" : ""}`}
           >
-            <Bubbe mood={busy ? "listening" : "idle"} size={dragging ? 118 : 104} className="transition-all" />
+            <Bubbe mood={mood} size={dragging ? 118 : 104} interactive className="transition-all" />
             <div className="space-y-1">
               <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em]">
                 {busy ? "Ett samtal transkriberas just nu" : "Släpp ett samtal här"}
