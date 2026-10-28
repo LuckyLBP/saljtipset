@@ -59,7 +59,8 @@ pub fn disable_for_process() {
 /// on the first delay-loaded Vulkan call, so callers must check this first.
 #[cfg(windows)]
 pub fn vulkan_loader_present() -> bool {
-    use windows_sys::Win32::System::LibraryLoader::{FreeLibrary, LoadLibraryW};
+    use windows_sys::Win32::Foundation::FreeLibrary;
+    use windows_sys::Win32::System::LibraryLoader::LoadLibraryW;
     let name: Vec<u16> = "vulkan-1.dll\0".encode_utf16().collect();
     // SAFETY: valid NUL-terminated wide string; the handle is freed right away.
     unsafe {

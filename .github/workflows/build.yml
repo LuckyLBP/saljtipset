@@ -19,6 +19,8 @@ env:
 jobs:
   test:
     name: Tester (${{ matrix.name }})
+    # A release tag points at code that was already tested on main.
+    if: github.ref_type != 'tag'
     strategy:
       fail-fast: false
       matrix:
@@ -50,6 +52,8 @@ jobs:
         with:
           workspaces: src-tauri
           key: ${{ matrix.features }}
+          # Windows builds in C:\t (see above), outside what rust-cache saves by default.
+          cache-directories: ${{ runner.os == 'Windows' && 'C:\t' || '' }}
 
       - name: Installera Vulkan SDK
         if: runner.os == 'Windows'
@@ -97,7 +101,9 @@ jobs:
   build:
     name: Bygg (${{ matrix.name }})
     needs: test
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    if: >-
+      always() && (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch')
     permissions:
       contents: write
     strategy:
@@ -147,6 +153,7 @@ jobs:
         with:
           workspaces: src-tauri
           key: ${{ matrix.target }}
+          cache-directories: ${{ runner.os == 'Windows' && 'C:\t' || '' }}
 
       - name: Installera Vulkan SDK
         if: runner.os == 'Windows'
