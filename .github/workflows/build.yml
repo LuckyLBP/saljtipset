@@ -49,8 +49,9 @@ jobs:
           # With Visual Studio, the cmake crate replaces CMake's release flags and drops /O2,
           # which leaves whisper.cpp unoptimized and many times slower. Set them ourselves
           # (whisper-rs-sys passes CMAKE_* through, and cmake then leaves them alone).
+          # Dashes, not slashes: Git Bash would turn a leading "/O2" into a file path.
           for v in C CXX; do for t in RELEASE RELWITHDEBINFO; do
-            echo "CMAKE_${v}_FLAGS_${t}=/O2 /Ob2 /DNDEBUG" >> "$GITHUB_ENV"
+            echo "CMAKE_${v}_FLAGS_${t}=-O2 -Ob2 -DNDEBUG" >> "$GITHUB_ENV"
           done; done
 
       - uses: dtolnay/rust-toolchain@stable
@@ -156,8 +157,9 @@ jobs:
           # With Visual Studio, the cmake crate replaces CMake's release flags and drops /O2,
           # which leaves whisper.cpp unoptimized and many times slower. Set them ourselves
           # (whisper-rs-sys passes CMAKE_* through, and cmake then leaves them alone).
+          # Dashes, not slashes: Git Bash would turn a leading "/O2" into a file path.
           for v in C CXX; do for t in RELEASE RELWITHDEBINFO; do
-            echo "CMAKE_${v}_FLAGS_${t}=/O2 /Ob2 /DNDEBUG" >> "$GITHUB_ENV"
+            echo "CMAKE_${v}_FLAGS_${t}=-O2 -Ob2 -DNDEBUG" >> "$GITHUB_ENV"
           done; done
 
       - uses: dtolnay/rust-toolchain@stable
@@ -287,4 +289,4 @@ jobs:
           # And that whisper.cpp was compiled optimized (see "Windows-byggmiljö").
           cache=$(ls /c/t/release/build/whisper-rs-sys-*/out/build/CMakeCache.txt | head -1)
           grep -E '^CMAKE_CXX_FLAGS_RELEASE' "$cache"
-          grep -qE '^CMAKE_CXX_FLAGS_RELEASE:[A-Z]+=.*/O2' "$cache" || { echo "whisper.cpp byggdes utan /O2"; exit 1; }
+          grep -qE '^CMAKE_CXX_FLAGS_RELEASE:[A-Z]+=.*[-/]O2' "$cache" || { echo "whisper.cpp byggdes utan /O2"; exit 1; }

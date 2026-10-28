@@ -251,7 +251,7 @@ still with the OS "Reduce motion" setting. The app icon is Bubbe on a charcoal t
   on a PC without the VC++ Redistributable (no "MSVCP140.dll saknas"). The release build checks
   the exe's imports and fails if a VC++ DLL sneaks back in.
 - Building on Windows yourself: set `CMAKE_C_FLAGS_RELEASE` and `CMAKE_CXX_FLAGS_RELEASE` to
-  `/O2 /Ob2 /DNDEBUG` first (CI does this in the "Windows-byggmiljö" step). With Visual Studio the
+  `-O2 -Ob2 -DNDEBUG` first (CI does this in the "Windows-byggmiljö" step). With Visual Studio the
   `cmake` crate otherwise replaces CMake's release flags without `/O2`, and whisper.cpp ends up
   unoptimized and many times slower.
 - The Vulkan loader is delay-loaded and `vulkan-1.dll` ships next to the exe, so the app starts
