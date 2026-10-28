@@ -252,3 +252,21 @@ jobs:
           # type, or the names collide).
           uploadWorkflowArtifacts: ${{ !startsWith(github.ref, 'refs/tags/v') }}
           workflowArtifactNamePattern: bubbe_[platform]_[arch]_[bundle]
+
+      # bubbe.exe must start on a fresh Windows, which may lack the Visual C++ runtime
+      # (src-tauri/.cargo/config.toml links it in). Fail rather than ship one that needs it.
+      - name: Kontrollera att bubbe.exe inte kräver Visual C++-runtime
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          python -m pip install --quiet pefile
+          python - <<'EOF'
+          import re, sys, pefile
+          pe = pefile.PE(r"C:\t\release\bubbe.exe", fast_load=True)
+          pe.parse_data_directories(directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_IMPORT"]])
+          dlls = [e.dll.decode() for e in pe.DIRECTORY_ENTRY_IMPORT]
+          print("Importerar:", ", ".join(dlls))
+          bad = [d for d in dlls if re.match(r"(msvcp|vcruntime|concrt)\d+", d, re.I)]
+          if bad:
+              sys.exit(f"bubbe.exe kräver {', '.join(bad)}, som saknas på många datorer.")
+          EOF

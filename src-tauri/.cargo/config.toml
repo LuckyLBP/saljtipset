@@ -1,0 +1,11 @@
+# Windows: link the Visual C++ runtime into bubbe.exe instead of needing MSVCP140.dll and
+# VCRUNTIME140.dll on the machine, which a fresh Windows install doesn't always have.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[env]
+# The same for whisper.cpp, which CMake builds (whisper-rs-sys passes CMAKE_* through).
+# Only MSVC reads it.
+CMAKE_MSVC_RUNTIME_LIBRARY = "MultiThreaded"
+# whisper.cpp asks for CMake 3.5, which would ignore the line above; opt in to the newer rule.
+CMAKE_POLICY_DEFAULT_CMP0091 = "NEW"

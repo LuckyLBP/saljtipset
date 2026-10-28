@@ -247,6 +247,9 @@ still with the OS "Reduce motion" setting. The app icon is Bubbe on a charcoal t
 
 ## Windows notes
 
+- The Visual C++ runtime is linked into `bubbe.exe` (`src-tauri/.cargo/config.toml`), so it starts
+  on a PC without the VC++ Redistributable (no "MSVCP140.dll saknas"). The release build checks
+  the exe's imports and fails if a VC++ DLL sneaks back in.
 - The Vulkan loader is delay-loaded and `vulkan-1.dll` ships next to the exe, so the app starts
   even on a PC with no Vulkan runtime. Without any GPU, ggml finds no Vulkan device and
   transcribes on the CPU.
