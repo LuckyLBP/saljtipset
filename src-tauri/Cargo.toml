@@ -1,6 +1,6 @@
 [package]
 name = "bubbe"
-version = "0.2.4"
+version = "0.2.5"
 description = "Bubbe – lokal transkribering av säljsamtal med säljtips och chatt"
 authors = ["Bubbe"]
 edition = "2024"
