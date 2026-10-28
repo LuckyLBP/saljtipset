@@ -248,6 +248,7 @@ jobs:
           tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
           releaseName: Bubbe ${{ github.ref_name }}
           releaseDraft: true
-          # Manual runs: keep the installers as workflow artifacts instead.
-          uploadWorkflowArtifacts: true
-          workflowArtifactNamePattern: bubbe-[platform]-[arch]
+          # Manual runs: keep the installers as workflow artifacts instead (one per bundle
+          # type, or the names collide).
+          uploadWorkflowArtifacts: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+          workflowArtifactNamePattern: bubbe_[platform]_[arch]_[bundle]
