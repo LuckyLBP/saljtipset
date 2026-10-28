@@ -59,6 +59,12 @@ jobs:
           cache: true
           stripdown: true
 
+      # The Windows build bundles the Vulkan loader (tauri.windows.conf.json), so it must exist.
+      - name: Lägg vulkan-1.dll på plats
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/fetch-vulkan-loader.ps1
+
       - name: Hämta testmodellen
         id: model
         uses: actions/cache@v4
