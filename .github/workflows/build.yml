@@ -128,6 +128,7 @@ jobs:
       # x86 builds must run on any customer CPU, not just the CI machine's (AVX2 baseline).
       GGML_NATIVE: ${{ matrix.target == 'aarch64-apple-darwin' && 'ON' || 'OFF' }}
       HAS_WINDOWS_CERT: ${{ secrets.WINDOWS_CERTIFICATE != '' }}
+      HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -203,19 +204,41 @@ jobs:
             features="${features:+$features,}updater"
             extra="--config src-tauri/tauri.updater.conf.json"
           fi
-          echo "args=--target ${{ matrix.target }} ${features:+--features $features} $extra ${{ steps.wincert.outputs.config }}" >> "$GITHUB_OUTPUT"
+          # Windows builds natively without --target: the extra target folder in the build
+          # path would push whisper.cpp's Vulkan build past the 260-character path limit.
+          target=""
+          if [ "${{ runner.os }}" != "Windows" ]; then target="--target ${{ matrix.target }}"; fi
+          echo "args=$target ${features:+--features $features} $extra ${{ steps.wincert.outputs.config }}" >> "$GITHUB_OUTPUT"
+
+      # --- macOS signing + notarization (optional) -----------------------------------
+      # Add APPLE_CERTIFICATE (base64 of the Developer ID .p12), APPLE_CERTIFICATE_PASSWORD,
+      # APPLE_SIGNING_IDENTITY, APPLE_ID, APPLE_PASSWORD and APPLE_TEAM_ID as secrets. They are
+      # only handed to the build when a certificate exists: Tauri tries to sign with whatever
+      # it gets, and an empty certificate fails the build. Without them the .dmg is unsigned
+      # and Gatekeeper warns. See README.
+      - name: Apple-signering
+        if: runner.os == 'macOS' && env.HAS_APPLE_CERT == 'true'
+        shell: bash
+        env:
+          C: ${{ secrets.APPLE_CERTIFICATE }}
+          CP: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          SI: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          AI: ${{ secrets.APPLE_ID }}
+          AP: ${{ secrets.APPLE_PASSWORD }}
+          AT: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          {
+            echo "APPLE_CERTIFICATE=$C"
+            echo "APPLE_CERTIFICATE_PASSWORD=$CP"
+            echo "APPLE_SIGNING_IDENTITY=$SI"
+            echo "APPLE_ID=$AI"
+            echo "APPLE_PASSWORD=$AP"
+            echo "APPLE_TEAM_ID=$AT"
+          } >> "$GITHUB_ENV"
 
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # --- macOS signing + notarization (optional) ---------------------------------
-          # Without these the .dmg is unsigned and Gatekeeper warns. See README.
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           # --- updater signing (only used when ENABLE_UPDATER=true) --------------------
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -223,8 +246,8 @@ jobs:
           args: ${{ steps.flags.outputs.args }}
           # On a tag: attach the .dmg / .msi / setup.exe to a draft release.
           tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
-          releaseName: Säljtipset ${{ github.ref_name }}
+          releaseName: Bubbe ${{ github.ref_name }}
           releaseDraft: true
           # Manual runs: keep the installers as workflow artifacts instead.
           uploadWorkflowArtifacts: true
-          workflowArtifactNamePattern: saljtipset-[platform]-[arch]
+          workflowArtifactNamePattern: bubbe-[platform]-[arch]
