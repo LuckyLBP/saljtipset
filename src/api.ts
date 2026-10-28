@@ -130,7 +130,7 @@ export interface Tips {
   droppedPoints: number;
 }
 
-export type CallStatus = "transcribing" | "done" | "error" | "cancelled";
+export type CallStatus = "queued" | "transcribing" | "done" | "error";
 
 export interface CallSummary {
   id: string;
@@ -165,6 +165,7 @@ export interface Call {
 export type Phase = "decoding" | "loading" | "transcribing";
 
 export type TranscriptionEvent =
+  | { callId: string; kind: "started" }
   | { callId: string; kind: "progress"; phase: Phase; percent: number }
   | { callId: string; kind: "segment"; segment: Segment }
   | { callId: string; kind: "done"; segments: Segment[]; durationMs: number; channels: number }
@@ -193,7 +194,10 @@ export const api = {
   cancelDownload: () => invoke<void>("cancel_download"),
   setActiveModel: (id: ModelId) => invoke<void>("set_active_model", { id }),
   deleteModel: (id: ModelId) => invoke<void>("delete_model", { id }),
-  startTranscription: (path: string) => invoke<string>("start_transcription", { path }),
+  /** Queues the files; they are transcribed one after the other. Returns the new call ids. */
+  startTranscription: (paths: string[]) => invoke<string[]>("start_transcription", { paths }),
+  retryTranscription: (id: string) => invoke<void>("retry_transcription", { id }),
+  queueIds: () => invoke<string[]>("queue_ids"),
   cancelTranscription: () => invoke<void>("cancel_transcription"),
   currentJob: () => invoke<string | null>("current_job"),
   listCalls: () => invoke<CallSummary[]>("list_calls"),
@@ -220,6 +224,8 @@ export const api = {
 
 export const onTranscription = (cb: (e: TranscriptionEvent) => void): Promise<UnlistenFn> =>
   listen<TranscriptionEvent>("transcription", (e) => cb(e.payload));
+export const onQueue = (cb: (ids: string[]) => void): Promise<UnlistenFn> =>
+  listen<{ ids: string[] }>("queue", (e) => cb(e.payload.ids));
 export const onTips = (cb: (e: TipsEvent) => void): Promise<UnlistenFn> => listen<TipsEvent>("tips", (e) => cb(e.payload));
 export const onDownload = (cb: (e: DownloadProgress) => void): Promise<UnlistenFn> =>
   listen<DownloadProgress>("model-download", (e) => cb(e.payload));

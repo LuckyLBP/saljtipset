@@ -6,18 +6,26 @@ import { TAGLINE } from "../brand";
 import { Bubbe } from "../mascot";
 import { Button, ErrorNote, Icon } from "../ui";
 
-/** The empty state: drop a call (or pick a file) to start. */
+/**
+ * The empty state: drop calls (or pick files) to start. Several at once is fine, and more can
+ * be added while one runs: they wait in the queue and are transcribed one after the other.
+ */
 export default function NewCall({
   busy,
-  onFile,
+  queued,
+  onFiles,
   onOpenJob,
 }: {
   busy: boolean;
-  onFile: (path: string) => Promise<void>;
+  /** How many calls are waiting behind the one being transcribed. */
+  queued: number;
+  /** Resolves with how many calls were queued. */
+  onFiles: (paths: string[]) => Promise<number>;
   onOpenJob: () => void;
 }) {
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [added, setAdded] = useState<number | null>(null);
   // Bubbe says hello when the screen appears and dozes off after a while without activity.
   const [greeting, setGreeting] = useState(true);
   const [asleep, setAsleep] = useState(false);
@@ -39,17 +47,25 @@ export default function NewCall({
     };
   }, []);
   const mood = busy ? "listening" : dragging ? "surprised" : error ? "oops" : greeting ? "hello" : asleep ? "sleepy" : "idle";
-  const startRef = useRef<(p: string) => void>(() => {});
+  const startRef = useRef<(p: string[]) => void>(() => {});
 
-  const start = async (path: string) => {
+  const start = async (paths: string[]) => {
     setError(null);
-    const ext = path.split(".").pop()?.toLowerCase() ?? "";
-    if (!AUDIO_EXTENSIONS.includes(ext)) {
-      setError(`Filtypen .${ext} stöds inte. Använd mp3, m4a, wav, ogg, webm, mp4 eller aac.`);
+    setAdded(null);
+    const ext = (p: string) => p.split(".").pop()?.toLowerCase() ?? "";
+    const ok = paths.filter((p) => AUDIO_EXTENSIONS.includes(ext(p)));
+    const skipped = paths.filter((p) => !AUDIO_EXTENSIONS.includes(ext(p)));
+    const skippedNote = skipped.length
+      ? `${skipped.length === 1 ? `Filtypen .${ext(skipped[0])} stöds inte` : `${skipped.length} filer hoppades över, filtypen stöds inte`}. Använd mp3, m4a, wav, ogg, webm, mp4 eller aac.`
+      : null;
+    if (ok.length === 0) {
+      setError(skippedNote);
       return;
     }
     try {
-      await onFile(path);
+      const n = await onFiles(ok);
+      setAdded(n);
+      setError(skippedNote);
     } catch (e) {
       setError(errorText(e));
     }
@@ -63,8 +79,7 @@ export default function NewCall({
       else if (t === "leave") setDragging(false);
       else if (t === "drop") {
         setDragging(false);
-        const path = e.payload.paths[0];
-        if (path) startRef.current(path);
+        if (e.payload.paths.length) startRef.current(e.payload.paths);
       }
     });
     return () => {
@@ -73,13 +88,13 @@ export default function NewCall({
   }, []);
 
   const pick = async () => {
-    const path = await open({
-      multiple: false,
+    const paths = await open({
+      multiple: true,
       directory: false,
-      title: "Välj ett samtal",
+      title: "Välj samtal",
       filters: [{ name: "Ljud och video", extensions: AUDIO_EXTENSIONS }],
     });
-    if (typeof path === "string") start(path);
+    if (paths?.length) start(paths);
   };
 
   return (
@@ -88,31 +103,41 @@ export default function NewCall({
       <div className="flex flex-1 items-center justify-center px-10 pb-16">
         <div className="w-full max-w-xl space-y-5 text-center">
           <div
-            onClick={busy ? undefined : pick}
+            onClick={pick}
             className={`flex flex-col items-center gap-4 rounded-[28px] border-[1.5px] border-dashed px-10 py-14 transition-all ${
               dragging
                 ? "scale-[1.01] border-accent bg-accent-soft"
                 : "border-line bg-surface/60 hover:border-accent/50 hover:bg-surface"
-            } ${busy ? "opacity-60" : ""}`}
+            }`}
           >
             <Bubbe mood={mood} size={dragging ? 118 : 104} interactive className="transition-all" />
             <div className="space-y-1">
               <h1 className="font-display text-[22px] font-semibold tracking-[-0.02em]">
-                {busy ? "Ett samtal transkriberas just nu" : "Släpp ett samtal här"}
+                {busy ? "Bubbe lyssnar på ett samtal" : "Släpp samtal här"}
               </h1>
               <p className="text-[13px] text-muted">
-                {busy ? "Du kan släppa nästa när det är klart." : "eller välj en fil. Ljudet stannar på din dator."}
+                {busy
+                  ? `Släpp fler så ställs de i kön${queued ? ` (${queued} väntar)` : ""}.`
+                  : "Ett eller flera på en gång. Ljudet stannar på din dator."}
               </p>
             </div>
-            {busy ? (
-              <Button onClick={onOpenJob}>Visa förloppet</Button>
-            ) : (
+            <div className="flex items-center gap-2">
               <Button variant="primary" size="lg" onClick={(e) => (e.stopPropagation(), pick())}>
-                <Icon.Plus /> Välj fil
+                <Icon.Plus /> Välj filer
               </Button>
-            )}
+              {busy && (
+                <Button size="lg" onClick={(e) => (e.stopPropagation(), onOpenJob())}>
+                  Visa förloppet
+                </Button>
+              )}
+            </div>
             <p className="text-[11.5px] text-faint">mp3 · m4a · wav · ogg · webm · mp4 · aac</p>
           </div>
+          {added !== null && busy && (
+            <p className="text-[13px] font-medium text-accent">
+              {added === 1 ? "Samtalet ställdes i kön." : `${added} samtal ställdes i kön.`}
+            </p>
+          )}
           {error && <ErrorNote>{error}</ErrorNote>}
           <p className="text-[12px] text-faint">{TAGLINE}</p>
         </div>

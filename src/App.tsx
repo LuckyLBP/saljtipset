@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type AppInfo, type CallSummary, errorText, onTips, onTranscription, type Phase, type Segment, type Tips } from "./api";
+import { api, type AppInfo, type CallSummary, errorText, onQueue, onTips, onTranscription, type Phase, type Segment, type Tips } from "./api";
 import Setup from "./views/Setup";
 import Onboarding from "./views/Onboarding";
 import NewCall from "./views/NewCall";
@@ -27,6 +27,8 @@ export default function App() {
   const [view, setView] = useState<View>({ name: "new" });
   const [calls, setCalls] = useState<CallSummary[] | null>(null);
   const [job, setJob] = useState<LiveJob | null>(null);
+  // Calls waiting their turn, in order.
+  const [queue, setQueue] = useState<string[]>([]);
   const [tipsState, setTipsState] = useState<TipsState>({});
   // Bumped whenever the call list or a call changed in the backend.
   const [revision, setRevision] = useState(0);
@@ -47,6 +49,7 @@ export default function App() {
     refreshInfo();
     // A transcription may still be running if the window was reloaded.
     api.currentJob().then((id) => id && setJob({ callId: id, phase: "transcribing", percent: 0, segments: [] }));
+    api.queueIds().then(setQueue).catch(() => {});
     // Only does anything in builds with the updater turned on; offline is fine.
     const check = () => api.checkUpdate().then((v) => v && setUpdate((u) => u ?? { version: v })).catch(() => {});
     check();
@@ -57,6 +60,10 @@ export default function App() {
   useEffect(() => {
     const un1 = onTranscription((e) => {
       switch (e.kind) {
+        case "started":
+          setJob({ callId: e.callId, phase: "decoding", percent: 0, segments: [] });
+          setRevision((r) => r + 1);
+          break;
         case "progress":
           setJob((j) => ({ callId: e.callId, segments: j?.callId === e.callId ? j.segments : [], phase: e.phase, percent: e.percent }));
           break;
@@ -67,16 +74,16 @@ export default function App() {
           });
           break;
         case "done":
-          setJob(null);
+          setJob((j) => (j?.callId === e.callId ? null : j));
           setRevision((r) => r + 1);
           break;
         case "error":
-          setJob(null);
+          setJob((j) => (j?.callId === e.callId ? null : j));
           setJobError({ callId: e.callId, message: e.message });
           setRevision((r) => r + 1);
           break;
         case "cancelled":
-          setJob(null);
+          setJob((j) => (j?.callId === e.callId ? null : j));
           setRevision((r) => r + 1);
           if (viewRef.current.name === "call" && viewRef.current.id === e.callId) setView({ name: "new" });
           break;
@@ -95,9 +102,11 @@ export default function App() {
       });
       if (e.kind === "done") setRevision((r) => r + 1);
     });
+    const un3 = onQueue(setQueue);
     return () => {
       un1.then((f) => f());
       un2.then((f) => f());
+      un3.then((f) => f());
     };
   }, []);
 
@@ -105,12 +114,18 @@ export default function App() {
     api.listCalls().then(setCalls).catch(() => setCalls([]));
   }, [revision]);
 
-  const startFile = useCallback(async (path: string) => {
+  const busy = job !== null || queue.length > 0;
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+
+  /** Queue files. With nothing running, open the first one so its progress shows. */
+  const startFiles = useCallback(async (paths: string[]): Promise<number> => {
     setJobError(null);
-    const id = await api.startTranscription(path);
-    setJob({ callId: id, phase: "decoding", percent: 0, segments: [] });
+    const wasBusy = busyRef.current;
+    const ids = await api.startTranscription(paths);
     setRevision((r) => r + 1);
-    setView({ name: "call", id });
+    if (!wasBusy && ids[0]) setView({ name: "call", id: ids[0] });
+    return ids.length;
   }, []);
 
   if (loadError) {
@@ -140,6 +155,7 @@ export default function App() {
         calls={calls}
         view={view}
         job={job}
+        queue={queue}
         tipsRunning={Object.entries(tipsState).filter(([, t]) => t.running).map(([id]) => id)}
         onNavigate={setView}
       />
@@ -153,7 +169,7 @@ export default function App() {
             <Button
               variant="primary"
               size="sm"
-              disabled={update.installing || job !== null}
+              disabled={update.installing || busy}
               onClick={async () => {
                 setUpdate({ ...update, installing: true, error: undefined });
                 try {
@@ -173,7 +189,14 @@ export default function App() {
         {info.gpuNotice && <div className="border-b border-line bg-accent-soft px-5 py-2 text-[12.5px]">{info.gpuNotice}</div>}
 
         <div className="min-h-0 flex-1">
-          {view.name === "new" && <NewCall busy={job !== null} onFile={startFile} onOpenJob={() => job && setView({ name: "call", id: job.callId })} />}
+          {view.name === "new" && (
+            <NewCall
+              busy={busy}
+              queued={queue.length}
+              onFiles={startFiles}
+              onOpenJob={() => job && setView({ name: "call", id: job.callId })}
+            />
+          )}
           {view.name === "call" && (
             <CallView
               key={view.id}
@@ -181,6 +204,7 @@ export default function App() {
               info={info}
               revision={revision}
               job={job?.callId === view.id ? job : null}
+              queuePosition={queue.indexOf(view.id) + 1}
               jobError={jobError?.callId === view.id ? jobError.message : null}
               tipsState={tipsState[view.id]}
               onTipsState={(s) => setTipsState((all) => ({ ...all, [view.id]: s }))}
@@ -195,7 +219,7 @@ export default function App() {
           {view.name === "settings" && (
             <SettingsView
               info={info}
-              busy={job !== null}
+              busy={busy}
               onChanged={refreshInfo}
               onDataDeleted={async () => {
                 setTipsState({});

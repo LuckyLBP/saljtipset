@@ -2,19 +2,22 @@ import { useMemo, useState } from "react";
 import type { CallSummary } from "../api";
 import type { LiveJob, View } from "../App";
 import { Logo } from "../brand";
-import { Icon, Spinner } from "../ui";
+import { Icon, ProgressBar, Spinner } from "../ui";
 
 /** Left column: brand, new call, search, the call list and settings. Glass shows through on macOS. */
 export default function Sidebar({
   calls,
   view,
   job,
+  queue,
   tipsRunning,
   onNavigate,
 }: {
   calls: CallSummary[] | null;
   view: View;
   job: LiveJob | null;
+  /** Calls waiting to be transcribed, in order. */
+  queue: string[];
   tipsRunning: string[];
   onNavigate: (v: View) => void;
 }) {
@@ -69,6 +72,7 @@ export default function Sidebar({
               {items.map((c) => {
                 const active = view.name === "call" && view.id === c.id;
                 const live = job?.callId === c.id;
+                const place = queue.indexOf(c.id) + 1;
                 return (
                   <button
                     key={c.id}
@@ -80,10 +84,22 @@ export default function Sidebar({
                     <div className="min-w-0 flex-1">
                       <div className={`truncate text-[13px] font-medium ${active ? "text-accent" : "text-ink"}`}>{c.title}</div>
                       <div className="truncate text-[11.5px] text-muted">
-                        {live ? `Transkriberar ${Math.round(job.percent)} %` : subtitle(c)}
+                        {live
+                          ? `${job.phase === "transcribing" ? "Transkriberar" : "Förbereder"} ${Math.round(job.percent)} %`
+                          : place
+                            ? `I kö · ${place === 1 ? "näst på tur" : `plats ${place}`}`
+                            : subtitle(c)}
                       </div>
+                      {(live || place > 0) && (
+                        <div className="pb-0.5 pt-1.5">
+                          <ProgressBar
+                            value={live ? job.percent : 0}
+                            indeterminate={live && job.phase === "loading"}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <StatusDot call={c} live={live} tips={tipsRunning.includes(c.id)} />
+                    <StatusDot call={c} live={live} queued={place > 0} tips={tipsRunning.includes(c.id)} />
                   </button>
                 );
               })}
@@ -106,8 +122,9 @@ export default function Sidebar({
   );
 }
 
-function StatusDot({ call, live, tips }: { call: CallSummary; live: boolean; tips: boolean }) {
+function StatusDot({ call, live, queued, tips }: { call: CallSummary; live: boolean; queued: boolean; tips: boolean }) {
   if (live || call.status === "transcribing" || tips) return <Spinner className="text-accent" />;
+  if (queued) return <span className="h-2 w-2 rounded-full border-[1.5px] border-faint" title="I kö" />;
   if (call.status === "error") return <span className="h-2 w-2 rounded-full bg-danger" title="Misslyckades" />;
   if (call.hasTips)
     return (

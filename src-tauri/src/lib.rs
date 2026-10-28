@@ -45,6 +45,8 @@ pub struct AppState {
     db: Mutex<Db>,
     contexts: Arc<ContextCache>,
     job: Mutex<Option<Job>>,
+    /// Calls waiting to be transcribed, in order. The worker takes them one at a time.
+    queue: Mutex<std::collections::VecDeque<String>>,
     download: Mutex<Option<Arc<AtomicBool>>>,
     gpu_notice: Mutex<Option<String>>,
     /// Claude Code / Codex found on this computer; looked up once, refreshed on request.
@@ -286,8 +288,8 @@ fn set_active_model(state: State<'_, AppState>, id: ModelId) -> CmdResult<()> {
 
 #[tauri::command]
 fn delete_model(state: State<'_, AppState>, id: ModelId) -> CmdResult<()> {
-    if state.job.lock().unwrap().is_some() {
-        return Err("Vänta tills transkriberingen är klar.".into());
+    if state.job.lock().unwrap().is_some() || !state.queue.lock().unwrap().is_empty() {
+        return Err("Vänta tills transkriberingarna är klara.".into());
     }
     state.contexts.clear();
     models::delete(&state.app_data, id).map_err(|e| format!("Kunde inte ta bort modellen: {e}"))
@@ -327,84 +329,154 @@ fn file_title(path: &Path) -> String {
     path.file_stem().and_then(|s| s.to_str()).unwrap_or("Samtal").replace(['_', '-'], " ")
 }
 
+/// Add audio files to the transcription queue. Each becomes a call right away (shown as
+/// queued) and they are transcribed one after the other. Returns the new call ids.
 #[tauri::command]
-fn start_transcription(app: AppHandle, state: State<'_, AppState>, path: String) -> CmdResult<String> {
-    let audio_path = PathBuf::from(&path);
-    if !audio_path.is_file() {
-        return Err("Filen hittades inte.".into());
-    }
+fn start_transcription(app: AppHandle, state: State<'_, AppState>, paths: Vec<String>) -> CmdResult<Vec<String>> {
     let model_id = state.active_model().ok_or("Ladda ner en talmodell först.")?;
-    let model_path = models::model_path(&state.app_data, model_id);
+    let mut ids = Vec::new();
+    let mut missing = Vec::new();
+    for path in paths {
+        let audio_path = PathBuf::from(&path);
+        if !audio_path.is_file() {
+            missing.push(audio_path.file_name().and_then(|s| s.to_str()).unwrap_or(&path).to_string());
+            continue;
+        }
+        let call = Call {
+            id: uuid::Uuid::new_v4().to_string(),
+            title: file_title(&audio_path),
+            file_path: path.clone(),
+            file_name: audio_path.file_name().and_then(|s| s.to_str()).unwrap_or_default().to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+            duration_ms: 0,
+            channels: 1,
+            model: model_id.as_str().into(),
+            status: "queued".into(),
+            error: None,
+            segments: vec![],
+            tips: None,
+            roles: vec![],
+            labels: vec![],
+            stats: None,
+        };
+        state.db.lock().unwrap().insert_call(&call).map_err(err)?;
+        state.queue.lock().unwrap().push_back(call.id.clone());
+        ids.push(call.id);
+    }
+    if ids.is_empty() {
+        return Err(if missing.is_empty() { "Inga filer att transkribera.".into() } else { format!("Filen hittades inte: {}", missing.join(", ")) });
+    }
+    emit_queue(&app);
+    pump_queue(&app);
+    Ok(ids)
+}
 
+/// Put a call that failed back in the queue, from its original audio file.
+#[tauri::command]
+fn retry_transcription(app: AppHandle, state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    let call = state.db.lock().unwrap().get(&id).map_err(err)?.ok_or("Samtalet finns inte.")?;
+    if !Path::new(&call.file_path).is_file() {
+        return Err(format!("Ljudfilen finns inte längre på {}.", call.file_path));
+    }
+    // Lock order is job, then queue, same as pump_queue.
+    {
+        let job = state.job.lock().unwrap();
+        let mut queue = state.queue.lock().unwrap();
+        if job.as_ref().is_some_and(|j| j.call_id == id) || queue.contains(&id) {
+            return Ok(());
+        }
+        state.db.lock().unwrap().set_status(&id, "queued", None).map_err(err)?;
+        queue.push_back(id);
+    }
+    emit_queue(&app);
+    pump_queue(&app);
+    Ok(())
+}
+
+/// Tell the UI which calls are waiting, in order.
+fn emit_queue(app: &AppHandle) {
+    let ids: Vec<String> = app.state::<AppState>().queue.lock().unwrap().iter().cloned().collect();
+    let _ = app.emit("queue", json!({ "ids": ids }));
+}
+
+/// Start the next queued call if nothing is being transcribed.
+fn pump_queue(app: &AppHandle) {
+    let state = app.state::<AppState>();
     let mut job = state.job.lock().unwrap();
     if job.is_some() {
-        return Err("En transkribering pågår redan. Vänta tills den är klar eller avbryt den.".into());
+        return;
     }
-    let call = Call {
-        id: uuid::Uuid::new_v4().to_string(),
-        title: file_title(&audio_path),
-        file_path: path.clone(),
-        file_name: audio_path.file_name().and_then(|s| s.to_str()).unwrap_or_default().to_string(),
-        created_at: chrono::Utc::now().to_rfc3339(),
-        duration_ms: 0,
-        channels: 1,
-        model: model_id.as_str().into(),
-        status: "transcribing".into(),
-        error: None,
-        segments: vec![],
-        tips: None,
-        roles: vec![],
-        labels: vec![],
-        stats: None,
+    let Some(call_id) = state.queue.lock().unwrap().pop_front() else { return };
+    let call = match state.db.lock().unwrap().get(&call_id) {
+        Ok(Some(c)) => c,
+        _ => {
+            drop(job);
+            return pump_queue(app); // deleted meanwhile
+        }
     };
-    state.db.lock().unwrap().insert_call(&call).map_err(err)?;
+    let Some(model_id) = state.active_model() else {
+        let msg = "Ladda ner en talmodell först.";
+        let _ = state.db.lock().unwrap().set_status(&call_id, "error", Some(msg));
+        let _ = app.emit("transcription", json!({"callId": call_id, "kind": "error", "message": msg}));
+        drop(job);
+        return pump_queue(app);
+    };
+    let model_path = models::model_path(&state.app_data, model_id);
+    let _ = state.db.lock().unwrap().set_status(&call_id, "transcribing", None);
     let cancel = Arc::new(AtomicBool::new(false));
-    *job = Some(Job { call_id: call.id.clone(), cancel: cancel.clone() });
+    *job = Some(Job { call_id: call_id.clone(), cancel: cancel.clone() });
     drop(job);
+    let _ = app.emit("transcription", json!({"callId": call_id, "kind": "started"}));
+    emit_queue(app);
 
     let opts = transcribe::Options { use_gpu: state.use_gpu(), ..Default::default() };
-    let call_id = call.id.clone();
     let contexts = state.contexts.clone();
-    std::thread::Builder::new()
-        .name("transcribe".into())
-        .spawn(move || {
-            let sink = Arc::new(EventSink { app: app.clone(), call_id: call_id.clone(), last: Mutex::new((Instant::now(), -1)) });
-            let result = transcribe::transcribe_file(&contexts, &model_path, &audio_path, &opts, cancel, sink);
-            let state = app.state::<AppState>();
-            *state.job.lock().unwrap() = None;
-            let db = state.db.lock().unwrap();
-            match result {
-                Ok(out) => {
-                    let _ = db.finish_transcription(&call_id, &out.segments, out.duration_ms, out.channels);
-                    drop(db);
-                    let _ = app.emit(
-                        "transcription",
-                        json!({"callId": call_id, "kind": "done", "segments": out.segments, "durationMs": out.duration_ms, "channels": out.channels}),
-                    );
-                    if state.auto_tips() {
-                        let app = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            // Quietly skip when no AI is connected; the tips panel explains why.
-                            if resolve_backend(&app.state::<AppState>()).await.is_ok() {
-                                let _ = run_tips(&app, &call_id).await;
-                            }
-                        });
-                    }
-                }
-                Err(transcribe::TranscribeError::Cancelled)
-                | Err(transcribe::TranscribeError::Audio(audio::AudioError::Cancelled)) => {
-                    let _ = db.delete(&call_id);
-                    let _ = app.emit("transcription", json!({"callId": call_id, "kind": "cancelled"}));
-                }
-                Err(e) => {
-                    let msg = e.to_string();
-                    let _ = db.set_status(&call_id, "error", Some(&msg));
-                    let _ = app.emit("transcription", json!({"callId": call_id, "kind": "error", "message": msg}));
+    let app = app.clone();
+    let audio_path = PathBuf::from(&call.file_path);
+    let spawned = std::thread::Builder::new().name("transcribe".into()).spawn(move || {
+        let sink = Arc::new(EventSink { app: app.clone(), call_id: call_id.clone(), last: Mutex::new((Instant::now(), -1)) });
+        let result = transcribe::transcribe_file(&contexts, &model_path, &audio_path, &opts, cancel, sink);
+        let state = app.state::<AppState>();
+        *state.job.lock().unwrap() = None;
+        let db = state.db.lock().unwrap();
+        match result {
+            Ok(out) => {
+                let _ = db.finish_transcription(&call_id, &out.segments, out.duration_ms, out.channels);
+                drop(db);
+                let _ = app.emit(
+                    "transcription",
+                    json!({"callId": call_id, "kind": "done", "segments": out.segments, "durationMs": out.duration_ms, "channels": out.channels}),
+                );
+                if state.auto_tips() {
+                    let app = app.clone();
+                    let call_id = call_id.clone();
+                    tauri::async_runtime::spawn(async move {
+                        // Quietly skip when no AI is connected; the tips panel explains why.
+                        if resolve_backend(&app.state::<AppState>()).await.is_ok() {
+                            let _ = run_tips(&app, &call_id).await;
+                        }
+                    });
                 }
             }
-        })
-        .map_err(err)?;
-    Ok(call.id)
+            Err(transcribe::TranscribeError::Cancelled)
+            | Err(transcribe::TranscribeError::Audio(audio::AudioError::Cancelled)) => {
+                let _ = db.delete(&call_id);
+                drop(db);
+                let _ = app.emit("transcription", json!({"callId": call_id, "kind": "cancelled"}));
+            }
+            Err(e) => {
+                let msg = e.to_string();
+                let _ = db.set_status(&call_id, "error", Some(&msg));
+                drop(db);
+                let _ = app.emit("transcription", json!({"callId": call_id, "kind": "error", "message": msg}));
+            }
+        }
+        // On to the next file.
+        pump_queue(&app);
+    });
+    if spawned.is_err() {
+        *state.job.lock().unwrap() = None;
+    }
 }
 
 #[tauri::command]
@@ -412,6 +484,11 @@ fn cancel_transcription(state: State<'_, AppState>) {
     if let Some(job) = state.job.lock().unwrap().as_ref() {
         job.cancel.store(true, Ordering::Relaxed);
     }
+}
+
+#[tauri::command]
+fn queue_ids(state: State<'_, AppState>) -> Vec<String> {
+    state.queue.lock().unwrap().iter().cloned().collect()
 }
 
 #[tauri::command]
@@ -483,7 +560,16 @@ fn rename_call(state: State<'_, AppState>, id: String, title: String) -> CmdResu
 }
 
 #[tauri::command]
-fn delete_call(state: State<'_, AppState>, id: String) -> CmdResult<()> {
+fn delete_call(app: AppHandle, state: State<'_, AppState>, id: String) -> CmdResult<()> {
+    let was_queued = {
+        let mut queue = state.queue.lock().unwrap();
+        let before = queue.len();
+        queue.retain(|q| q != &id);
+        queue.len() != before
+    };
+    if was_queued {
+        emit_queue(&app);
+    }
     if let Some(job) = state.job.lock().unwrap().as_ref() {
         if job.call_id == id {
             job.cancel.store(true, Ordering::Relaxed);
@@ -612,6 +698,7 @@ async fn test_api_key(state: State<'_, AppState>, key: Option<String>) -> CmdRes
 
 #[tauri::command]
 fn delete_all_data(state: State<'_, AppState>) -> CmdResult<()> {
+    state.queue.lock().unwrap().clear();
     if let Some(job) = state.job.lock().unwrap().as_ref() {
         job.cancel.store(true, Ordering::Relaxed);
     }
@@ -714,6 +801,7 @@ pub fn run() {
                 db: Mutex::new(db),
                 contexts: Arc::new(ContextCache::default()),
                 job: Mutex::new(None),
+                queue: Mutex::new(std::collections::VecDeque::new()),
                 download: Mutex::new(None),
                 gpu_notice: Mutex::new(gpu_notice),
                 detected: Mutex::new(None),
@@ -737,6 +825,8 @@ pub fn run() {
             start_transcription,
             cancel_transcription,
             current_job,
+            retry_transcription,
+            queue_ids,
             list_calls,
             get_call,
             rename_call,

@@ -1,14 +1,13 @@
 name: Nedladdningssida
 
 # Publishes site/ to GitHub Pages. The download buttons find the newest release's
-# installers through the GitHub API, so publishing a release is enough to update them.
+# installers through the GitHub API, so publishing a release is enough to update them and
+# no deploy is needed then (the github-pages environment only accepts deploys from main).
 
 on:
   push:
     branches: [main]
     paths: ["site/**", ".github/workflows/pages.yml"]
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:

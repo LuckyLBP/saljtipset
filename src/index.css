@@ -96,6 +96,18 @@ html.native-glass body {
 html:not(.native-glass) .sidebar {
   background: var(--color-sidebar);
 }
+/* The glass takes its tone from whatever is behind the window (a dark wallpaper turns it
+   dark grey even in light mode), so tint it toward the theme to keep the text readable. */
+html.native-glass .sidebar {
+  background: color-mix(in srgb, var(--color-sidebar) 74%, transparent);
+}
+/* Even tinted, light glass ends up darker than the sidebar color, so its greys go darker too. */
+@media (prefers-color-scheme: light) {
+  html.native-glass .sidebar {
+    --color-muted: #5a5047;
+    --color-faint: #62574d;
+  }
+}
 .content {
   background: var(--color-content);
 }

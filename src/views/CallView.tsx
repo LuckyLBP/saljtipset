@@ -30,6 +30,7 @@ export default function CallView({
   info,
   revision,
   job,
+  queuePosition,
   jobError,
   tipsState,
   onTipsState,
@@ -41,6 +42,8 @@ export default function CallView({
   info: AppInfo;
   revision: number;
   job: LiveJob | null;
+  /** 1-based place in the transcription queue, 0 when not waiting. */
+  queuePosition: number;
   jobError: string | null;
   tipsState?: TipsState[string];
   onTipsState: (s: TipsState[string]) => void;
@@ -61,7 +64,8 @@ export default function CallView({
     api.getCall(id).then(setCall).catch((e) => setError(errorText(e)));
   }, [id, revision]);
 
-  const transcribing = call?.status === "transcribing" || job !== null;
+  const queued = queuePosition > 0 && !job;
+  const transcribing = call?.status === "transcribing" || call?.status === "queued" || job !== null;
   const segments: Segment[] = useMemo(() => {
     if (job && job.segments.length > 0) return [...job.segments].sort((a, b) => a.startMs - b.startMs);
     return call?.segments ?? [];
@@ -256,12 +260,42 @@ export default function CallView({
           </Button>
         </div>
       )}
+      {queued && (
+        <div className="flex items-center gap-3 px-5 pb-3">
+          <Bubbe mood="sleepy" size={40} />
+          <div className="flex-1">
+            <ProgressBar value={0} />
+          </div>
+          <span className="text-[12px] text-muted">
+            I kö · {queuePosition === 1 ? "näst på tur" : `plats ${queuePosition}`}
+          </span>
+          <Button size="sm" onClick={remove}>
+            Ta bort ur kön
+          </Button>
+        </div>
+      )}
       {(failed || jobError || error) && (
         <div className="flex items-center gap-3 px-5 pb-3">
           <Bubbe mood="oops" size={44} />
           <div className="flex-1">
             <ErrorNote>{error ?? jobError ?? call.error ?? "Transkriberingen misslyckades."}</ErrorNote>
           </div>
+          {failed && call.segments.length === 0 && (
+            <Button
+              size="sm"
+              onClick={async () => {
+                try {
+                  setError(null);
+                  await api.retryTranscription(id);
+                  onChanged();
+                } catch (e) {
+                  setError(errorText(e));
+                }
+              }}
+            >
+              Försök igen
+            </Button>
+          )}
         </div>
       )}
 
@@ -295,7 +329,13 @@ export default function CallView({
               {guessedRoles && <p className="mb-4 text-[12px] text-muted">Vem som säger vad är gissat av AI:n utifrån innehållet.</p>}
               {segments.length === 0 ? (
                 <p className="py-16 text-center text-[13px] text-muted">
-                  {transcribing ? "Texten dyker upp här allt eftersom." : "Ingen text hittades i ljudfilen."}
+                  {queued
+                    ? "Samtalet väntar på sin tur. Texten dyker upp här när Bubbe kommer dit."
+                    : transcribing
+                      ? "Texten dyker upp här allt eftersom."
+                      : failed
+                        ? "Ingen text än."
+                        : "Ingen text hittades i ljudfilen."}
                 </p>
               ) : (
                 <div className="selectable">

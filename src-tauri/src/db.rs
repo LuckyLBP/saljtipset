@@ -41,7 +41,7 @@ pub struct Call {
     pub duration_ms: u64,
     pub channels: usize,
     pub model: String,
-    /// transcribing | done | error | cancelled
+    /// queued | transcribing | done | error
     pub status: String,
     pub error: Option<String>,
     pub segments: Vec<Segment>,
@@ -104,9 +104,13 @@ impl Db {
         conn.pragma_update(None, "journal_mode", "WAL")?;
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.execute_batch(SCHEMA)?;
-        // A crash or quit mid-transcription leaves rows stuck in "transcribing".
+        // A crash or quit mid-transcription leaves rows stuck in "transcribing" or "queued".
         conn.execute(
             "UPDATE calls SET status = 'error', error = 'Transkriberingen avbröts när appen stängdes.' WHERE status = 'transcribing'",
+            [],
+        )?;
+        conn.execute(
+            "UPDATE calls SET status = 'error', error = 'Samtalet låg i kön när appen stängdes.' WHERE status = 'queued'",
             [],
         )?;
         Ok(Self { conn })
