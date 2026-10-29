@@ -358,15 +358,30 @@ pub async fn generate_tips(backend: &Backend, segments: &[Segment], stereo: bool
     if segments.is_empty() {
         return Err("Transkriberingen är tom, det finns inget att analysera.".into());
     }
-    let mut prompt = Prompt {
-        system: format!("{}\n\n{}", tips::SYSTEM_PROMPT, sales::PLAYBOOK),
-        context: None,
-        turns: vec![Turn { role: Role::User, text: tips::user_prompt(segments, stereo, profile) }],
-        schema: Some(tips::response_schema()),
-        max_tokens: 16_000,
+    // An admin gets a review against the company's rules instead of sales coaching.
+    let review = profile.is_admin();
+    let mut prompt = if review {
+        Prompt {
+            system: tips::REVIEW_SYSTEM_PROMPT.into(),
+            context: None,
+            turns: vec![Turn { role: Role::User, text: tips::review_prompt(segments, stereo, profile) }],
+            schema: Some(tips::review_schema()),
+            max_tokens: 16_000,
+        }
+    } else {
+        Prompt {
+            system: format!("{}\n\n{}", tips::SYSTEM_PROMPT, sales::PLAYBOOK),
+            context: None,
+            turns: vec![Turn { role: Role::User, text: tips::user_prompt(segments, stereo, profile) }],
+            schema: Some(tips::response_schema()),
+            max_tokens: 16_000,
+        }
+    };
+    let parse = |text: &str| {
+        if review { tips::parse_review(text, segments.len()) } else { tips::parse_and_validate(text, segments.len()) }
     };
     let first = complete(backend, &prompt).await?;
-    let parsed = match tips::parse_and_validate(&first, segments.len()) {
+    let parsed = match parse(&first) {
         Ok(t) => t,
         Err(why) => {
             log::warn!("tips: invalid first answer ({why}), retrying once");
@@ -374,11 +389,47 @@ pub async fn generate_tips(backend: &Backend, segments: &[Segment], stereo: bool
                 "\n\nObs: ett tidigare svar underkändes ({why}). Svara med enbart giltig JSON enligt schemat."
             ));
             let second = complete(backend, &prompt).await?;
-            tips::parse_and_validate(&second, segments.len())
+            parse(&second)
                 .map_err(|e| format!("AI:n svarade inte med giltig JSON, inte ens vid andra försöket ({e})."))?
         }
     };
     Ok(tips::verify_against_transcript(parsed, segments))
+}
+
+// ---------- policy ----------
+
+const POLICY_SYSTEM_PROMPT: &str = "\
+Du hjälper en säljchef att skriva regler för hur företagets säljsamtal ska gå till. Reglerna \
+används sedan för att automatiskt granska transkriberade samtal.
+
+- Skriv på svenska, 5–15 regler, en per rad, numrerade (1., 2., ...). Ingen annan text.
+- Varje regel ska gå att kontrollera i ett samtal: något säljaren ska säga, fråga eller aldrig \
+göra. Undvik vaga regler som \"var professionell\".
+- Utgå från det säljchefen beskriver. Lägg bara till allmänna regler (t.ex. ärlighet om pris \
+och villkor, inga falska löften, samtycke vid inspelning) när de passar verksamheten.";
+
+/// "Fråga AI": turn an admin's short description into a numbered list of rules.
+pub async fn draft_policy(backend: &Backend, description: &str, current: &str) -> Result<String, String> {
+    let mut ask = format!("Så här beskriver säljchefen verksamheten och vad som är viktigt:\n{}", description.trim());
+    if !current.trim().is_empty() {
+        ask.push_str(&format!(
+            "\n\nDet finns redan de här reglerna. Behåll det som är bra och bygg vidare:\n{}",
+            current.trim()
+        ));
+    }
+    let prompt = Prompt {
+        system: POLICY_SYSTEM_PROMPT.into(),
+        context: None,
+        turns: vec![Turn { role: Role::User, text: ask }],
+        schema: None,
+        max_tokens: 2_000,
+    };
+    let answer = complete(backend, &prompt).await?;
+    let rules = answer.trim().trim_start_matches("```").trim_end_matches("```").trim().to_string();
+    if rules.is_empty() {
+        return Err("AI:n svarade inte med några regler. Försök igen.".into());
+    }
+    Ok(rules)
 }
 
 // ---------- chat ----------
@@ -390,6 +441,18 @@ med dig. Du har transkriberingen av samtalet och, om de finns, säljtips som red
 - Svara på svenska, kort och konkret: oftast 2–6 meningar eller en kort punktlista.
 - Hänvisa till ställen i samtalet med tidsstämpel i formatet [mm:ss]. Citera ordagrant.
 - När säljaren frågar vad hen kunde ha sagt istället: ge konkreta formuleringar att använda.
+- Utgå bara från samtalet. Hitta inte på vad som sades; säg till om något inte framgår.
+- Transkriberingen är automatisk och kan innehålla felhörningar.";
+
+pub const REVIEW_CHAT_SYSTEM_PROMPT: &str = "\
+Du hjälper en säljchef eller compliance-ansvarig att granska ett säljsamtal som någon annan har \
+haft. Du har transkriberingen, företagets regler och, om den finns, en granskning som redan \
+tagits fram.
+
+- Svara på svenska, kort och konkret: oftast 2–6 meningar eller en kort punktlista.
+- Hänvisa till ställen i samtalet med tidsstämpel i formatet [mm:ss]. Citera ordagrant.
+- Var saklig och rättvis mot säljaren. Skilj på regelbrott och sådant som bara kunde gjorts bättre.
+- När du får frågan hur något ska tas upp med säljaren: ge ett konkret, vänligt förslag.
 - Utgå bara från samtalet. Hitta inte på vad som sades; säg till om något inte framgår.
 - Transkriberingen är automatisk och kan innehålla felhörningar.";
 
@@ -414,18 +477,19 @@ pub fn chat_context(title: &str, segments: &[Segment], tips: Option<&Tips>, prof
     out.push_str(&format_for_model(segments));
     out.push_str("\n</transkribering>\n");
     if let Some(t) = tips {
-        out.push_str("\n<säljtips>\n");
+        let tag = if t.kind == tips::Kind::Review { "granskning" } else { "säljtips" };
+        out.push_str(&format!("\n<{tag}>\n"));
         out.push_str(&tips::format_tips_plain(t, title));
-        out.push_str("\n</säljtips>\n");
+        out.push_str(&format!("\n</{tag}>\n"));
     }
     out
 }
 
-pub fn chat_prompt(context: String, history: &[Turn], question: &str) -> Prompt {
+pub fn chat_prompt(context: String, history: &[Turn], question: &str, review: bool) -> Prompt {
     let mut turns: Vec<Turn> = history.to_vec();
     turns.push(Turn { role: Role::User, text: question.trim().to_string() });
     Prompt {
-        system: format!("{CHAT_SYSTEM_PROMPT}\n\n{}", sales::PLAYBOOK),
+        system: if review { REVIEW_CHAT_SYSTEM_PROMPT.into() } else { format!("{CHAT_SYSTEM_PROMPT}\n\n{}", sales::PLAYBOOK) },
         context: Some(context),
         turns,
         schema: None,

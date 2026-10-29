@@ -57,6 +57,45 @@ pub struct MissedOpportunity {
     pub suggestion: String,
 }
 
+/// Admin review: a place where the call broke the company's rules.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Flag {
+    /// Which rule, e.g. "3. Lova aldrig ...", or a short name of the rule.
+    pub rule: String,
+    /// One of [`SEVERITIES`].
+    pub severity: String,
+    pub explanation: String,
+    #[serde(flatten)]
+    pub evidence: Evidence,
+}
+
+/// Admin review: something risky that the rules don't cover yet.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PolicyGap {
+    pub issue: String,
+    pub suggested_rule: String,
+    #[serde(flatten)]
+    pub evidence: Evidence,
+}
+
+pub const VERDICT_OK: &str = "godkant";
+pub const VERDICT_CHECK: &str = "bor_ses_over";
+pub const VERDICT_SERIOUS: &str = "allvarligt";
+pub const VERDICTS: [&str; 3] = [VERDICT_OK, VERDICT_CHECK, VERDICT_SERIOUS];
+pub const SEVERITY_HIGH: &str = "hog";
+pub const SEVERITIES: [&str; 3] = ["lag", "medel", SEVERITY_HIGH];
+
+/// What an analysis is: coaching for the seller, or a review for an admin.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Kind {
+    #[default]
+    Sales,
+    Review,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SegmentRole {
@@ -71,9 +110,14 @@ pub struct ChannelRole {
     pub role: String,
 }
 
+/// The AI's analysis of a call: sales coaching (`kind` sales, the selling fields) or an admin
+/// review (`kind` review, the verdict/flags/gaps fields). Both share roles, names and summary.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Tips {
+    /// Absent in analyses from before admin reviews existed, which were all sales.
+    #[serde(default)]
+    pub kind: Kind,
     /// Mono calls: Claude's guess of who says each line.
     pub speakers: Vec<SegmentRole>,
     /// Stereo calls: which channel is the seller and which is the customer.
@@ -90,6 +134,18 @@ pub struct Tips {
     pub customer_name: String,
     #[serde(default)]
     pub customer_company: String,
+    /// Review: the seller's name, only if said in the call (verified), else empty.
+    #[serde(default)]
+    pub seller_name: String,
+    /// Review: one of [`VERDICTS`], and why in a sentence.
+    #[serde(default)]
+    pub verdict: String,
+    #[serde(default)]
+    pub verdict_reason: String,
+    #[serde(default)]
+    pub flags: Vec<Flag>,
+    #[serde(default)]
+    pub policy_gaps: Vec<PolicyGap>,
     /// How many points verification removed because their quote wasn't in the transcript.
     #[serde(default)]
     pub dropped_points: usize,
@@ -123,9 +179,9 @@ text från olika rader. Håll citaten korta (ett par meningar som mest).
 punkter än påhittade. Tomma listor är okej.
 - Transkriberingen är automatisk och kan innehålla felhörningar; tolka rimligt men citera exakt.";
 
-/// The user message: instructions for this call plus the transcript.
-pub fn user_prompt(segments: &[Segment], stereo: bool, profile: &Profile) -> String {
-    let speakers = if stereo {
+/// How to fill in the speaker roles, for stereo or mono calls.
+fn speaker_instructions(stereo: bool) -> &'static str {
+    if stereo {
         "Samtalet är inspelat i stereo: \"Talare 1\" och \"Talare 2\" är säkra talare (olika kanaler). \
 Avgör vilken som är säljaren och vilken som är kunden och fyll i `channelRoles` med en rad per \
 talare (roll \"Säljare\" eller \"Kund\"). Lämna `speakers` tom."
@@ -133,7 +189,12 @@ talare (roll \"Säljare\" eller \"Kund\"). Lämna `speakers` tom."
         "Samtalet är inspelat i mono och talarna är inte märkta. Gissa utifrån innehållet vem som säger \
 vad och fyll i `speakers` med en rad per transkriberingsrad (`segmentId` är numret efter #, roll \
 \"Säljare\" eller \"Kund\"). Lämna `channelRoles` tom."
-    };
+    }
+}
+
+/// The user message: instructions for this call plus the transcript.
+pub fn user_prompt(segments: &[Segment], stereo: bool, profile: &Profile) -> String {
+    let speakers = speaker_instructions(stereo);
     let about = profile.prompt_block().map(|p| format!("{p}\n\n")).unwrap_or_default();
     format!(
         "Analysera säljsamtalet nedan.\n\n{about}{speakers}\n\nFyll i:\n\
@@ -152,17 +213,36 @@ Varje rad i transkriberingen har formatet `#id [mm:ss] Talare: text`.\n\n\
     )
 }
 
+/// Schema properties for an item with a quote and timestamp, plus `extra`.
+fn evidence_props(extra: serde_json::Value) -> serde_json::Value {
+    let mut props = json!({
+        "quote": {"type": "string"},
+        "timestamp": {"type": "string"}
+    });
+    props.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+    props
+}
+
+/// Schema for `speakers` (mono) and `channelRoles` (stereo).
+fn role_schemas() -> (serde_json::Value, serde_json::Value) {
+    let role = json!({"type": "string", "enum": [ROLE_SELLER, ROLE_CUSTOMER]});
+    (
+        json!({"type": "array", "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["segmentId", "role"],
+            "properties": {"segmentId": {"type": "integer"}, "role": role}
+        }}),
+        json!({"type": "array", "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["speaker", "role"],
+            "properties": {"speaker": {"type": "string", "enum": ["Talare 1", "Talare 2"]}, "role": role}
+        }}),
+    )
+}
+
 /// JSON schema for structured output. Mirrors [`Tips`] (minus the fields we fill in ourselves).
 pub fn response_schema() -> serde_json::Value {
-    let evidence_props = |extra: serde_json::Value| {
-        let mut props = json!({
-            "quote": {"type": "string"},
-            "timestamp": {"type": "string"}
-        });
-        props.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
-        props
-    };
-    let role = json!({"type": "string", "enum": [ROLE_SELLER, ROLE_CUSTOMER]});
+    let (speakers, channel_roles) = role_schemas();
     json!({
         "type": "object",
         "additionalProperties": false,
@@ -171,16 +251,8 @@ pub fn response_schema() -> serde_json::Value {
         "properties": {
             "customerName": {"type": "string"},
             "customerCompany": {"type": "string"},
-            "speakers": {"type": "array", "items": {
-                "type": "object", "additionalProperties": false,
-                "required": ["segmentId", "role"],
-                "properties": {"segmentId": {"type": "integer"}, "role": role}
-            }},
-            "channelRoles": {"type": "array", "items": {
-                "type": "object", "additionalProperties": false,
-                "required": ["speaker", "role"],
-                "properties": {"speaker": {"type": "string", "enum": ["Talare 1", "Talare 2"]}, "role": role}
-            }},
+            "speakers": speakers,
+            "channelRoles": channel_roles,
             "summary": {"type": "string"},
             "sellingPoints": {"type": "array", "items": {
                 "type": "object", "additionalProperties": false,
@@ -207,10 +279,157 @@ pub fn response_schema() -> serde_json::Value {
     })
 }
 
+pub const REVIEW_SYSTEM_PROMPT: &str = "\
+Du granskar svenska säljsamtal åt en säljchef eller compliance-ansvarig. Du får en \
+transkribering och företagets regler, och ska visa var samtalet bröt mot reglerna och vad som \
+var riskabelt utan att reglerna täcker det. Var saklig och rättvis: flagga det som faktiskt \
+sades, inte det som kunde ha sagts.
+
+Regler:
+- Svara alltid på svenska.
+- Svara enbart med JSON enligt det angivna schemat, utan någon annan text.
+- Varje citat (`quote`) ska vara en exakt, ordagrann del av transkriberingen: kopiera orden \
+precis som de står, utan att rätta stavning eller grammatik, utan \"...\" och utan att foga ihop \
+text från olika rader. Håll citaten korta (ett par meningar som mest).
+- `timestamp` ska vara tidsstämpeln (mm:ss) för raden där citatet står.
+- Hitta aldrig på citat, regelbrott eller händelser som inte finns i transkriberingen. Hellre \
+färre flaggor än påhittade. Tomma listor är okej, och ett samtal utan problem är godkänt.
+- Transkriberingen är automatisk och kan innehålla felhörningar; tolka rimligt och flagga inte \
+sådant som troligen är en felhörning.";
+
+/// The user message for an admin review: the rules, what to look for, and the transcript.
+pub fn review_prompt(segments: &[Segment], stereo: bool, profile: &Profile) -> String {
+    let speakers = speaker_instructions(stereo);
+    let about = profile.prompt_block().map(|p| format!("{p}\n\n")).unwrap_or_default();
+    let rules = if profile.policy.trim().is_empty() {
+        "Det finns inga nedskrivna regler. Granska mot god sed i försäljning: ärlighet, inga \
+påtryckningar eller falska löften, tydliga priser och villkor, respekt för ett nej, och samtycke \
+om samtalet spelas in. Lägg allt i `flags` med `rule` som en kort beskrivning av vad som bröts, \
+och lämna `policyGaps` tom."
+    } else {
+        "Jämför samtalet med reglerna ovan. `flags` är brott mot en regel: skriv regelns nummer och \
+korta lydelse i `rule`. `policyGaps` är sådant som var riskabelt eller olämpligt men som ingen regel \
+täcker: beskriv problemet och föreslå en ny regel att lägga till."
+    };
+    let terms = if profile.terms.trim().is_empty() {
+        ""
+    } else {
+        "\n\nJämför också med de allmänna villkoren ovan. Flagga när säljaren säger något som strider \
+mot villkoren eller ger kunden fel bild av dem (t.ex. pris, avtalstid, uppsägning, ångerrätt, \
+garantier). Skriv i `rule` vilken del av villkoren det gäller, t.ex. \"Allmänna villkor: \
+Uppsägning\", och citera säljaren, inte villkoren."
+    };
+    format!(
+        "Granska säljsamtalet nedan.\n\n{about}{speakers}\n\n{rules}{terms}\n\nFyll i:\n\
+- `sellerName`: säljarens namn om det sägs i samtalet, annars tom sträng. Gissa inte.\n\
+- `customerName`: kundens namn om det sägs i samtalet, annars tom sträng. Gissa inte.\n\
+- `customerCompany`: kundens företag om det nämns, annars tom sträng.\n\
+- `summary`: 3–5 meningar om vad samtalet handlade om och hur det gick.\n\
+- `flags`: varje regelbrott, med `severity` \"lag\", \"medel\" eller \"hog\", en kort \
+förklaring och ett citat som belägg.\n\
+- `policyGaps`: se ovan, med citat som belägg.\n\
+- `verdict`: \"godkant\" om inget behöver åtgärdas, \"bor_ses_over\" om något bör tas upp med \
+säljaren, \"allvarligt\" vid allvarliga brott (t.ex. vilseledande löften eller brott mot lag).\n\
+- `verdictReason`: en mening om varför.\n\n\
+Varje rad i transkriberingen har formatet `#id [mm:ss] Talare: text`.\n\n\
+<transkribering>\n{}\n</transkribering>",
+        format_for_model(segments)
+    )
+}
+
+/// JSON schema for an admin review. Mirrors [`ReviewAnswer`].
+pub fn review_schema() -> serde_json::Value {
+    let (speakers, channel_roles) = role_schemas();
+    json!({
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["speakers", "channelRoles", "sellerName", "customerName", "customerCompany", "summary",
+                     "flags", "policyGaps", "verdict", "verdictReason"],
+        "properties": {
+            "speakers": speakers,
+            "channelRoles": channel_roles,
+            "sellerName": {"type": "string"},
+            "customerName": {"type": "string"},
+            "customerCompany": {"type": "string"},
+            "summary": {"type": "string"},
+            "flags": {"type": "array", "items": {
+                "type": "object", "additionalProperties": false,
+                "required": ["rule", "severity", "explanation", "quote", "timestamp"],
+                "properties": evidence_props(json!({
+                    "rule": {"type": "string"},
+                    "severity": {"type": "string", "enum": SEVERITIES},
+                    "explanation": {"type": "string"}
+                }))
+            }},
+            "policyGaps": {"type": "array", "items": {
+                "type": "object", "additionalProperties": false,
+                "required": ["issue", "suggestedRule", "quote", "timestamp"],
+                "properties": evidence_props(json!({"issue": {"type": "string"}, "suggestedRule": {"type": "string"}}))
+            }},
+            "verdict": {"type": "string", "enum": VERDICTS},
+            "verdictReason": {"type": "string"}
+        }
+    })
+}
+
+/// What the model returns for a review. Strict: every field must be there.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ReviewAnswer {
+    speakers: Vec<SegmentRole>,
+    channel_roles: Vec<ChannelRole>,
+    seller_name: String,
+    customer_name: String,
+    customer_company: String,
+    summary: String,
+    flags: Vec<Flag>,
+    policy_gaps: Vec<PolicyGap>,
+    verdict: String,
+    verdict_reason: String,
+}
+
+/// Parse an admin review and check the parts serde can't.
+pub fn parse_review(text: &str, n_segments: usize) -> Result<Tips, String> {
+    let a: ReviewAnswer = serde_json::from_str(strip_code_fence(text)).map_err(|e| format!("ogiltig JSON: {e}"))?;
+    if !VERDICTS.contains(&a.verdict.as_str()) {
+        return Err(format!("okänt omdöme \"{}\"", a.verdict));
+    }
+    if let Some(f) = a.flags.iter().find(|f| !SEVERITIES.contains(&f.severity.as_str())) {
+        return Err(format!("okänd allvarlighetsgrad \"{}\"", f.severity));
+    }
+    let tips = Tips {
+        kind: Kind::Review,
+        speakers: a.speakers,
+        channel_roles: a.channel_roles,
+        summary: a.summary,
+        selling_points: vec![],
+        customer_needs: vec![],
+        objections: vec![],
+        missed_opportunities: vec![],
+        next_steps: vec![],
+        customer_name: a.customer_name,
+        customer_company: a.customer_company,
+        seller_name: a.seller_name,
+        verdict: a.verdict,
+        verdict_reason: a.verdict_reason,
+        flags: a.flags,
+        policy_gaps: a.policy_gaps,
+        dropped_points: 0,
+    };
+    validate(&tips, n_segments)?;
+    Ok(tips)
+}
+
 /// Parse the model's text into [`Tips`] and check the parts serde can't.
 pub fn parse_and_validate(text: &str, n_segments: usize) -> Result<Tips, String> {
     let trimmed = strip_code_fence(text);
     let tips: Tips = serde_json::from_str(trimmed).map_err(|e| format!("ogiltig JSON: {e}"))?;
+    validate(&tips, n_segments)?;
+    Ok(tips)
+}
+
+/// Checks shared by sales tips and reviews: summary length, roles and timestamps.
+fn validate(tips: &Tips, n_segments: usize) -> Result<(), String> {
     let sentences = tips.summary.split(['.', '!', '?']).filter(|s| s.trim().len() > 1).count();
     if tips.summary.trim().is_empty() || sentences > 8 {
         return Err(format!("`summary` ska vara 3–5 meningar, fick {sentences}"));
@@ -233,13 +452,15 @@ pub fn parse_and_validate(text: &str, n_segments: usize) -> Result<Tips, String>
         .iter()
         .map(|p| &p.evidence)
         .chain(tips.customer_needs.iter().map(|p| &p.evidence))
-        .chain(tips.objections.iter().map(|p| &p.evidence));
+        .chain(tips.objections.iter().map(|p| &p.evidence))
+        .chain(tips.flags.iter().map(|p| &p.evidence))
+        .chain(tips.policy_gaps.iter().map(|p| &p.evidence));
     for e in all_evidence {
         if parse_timestamp(&e.timestamp).is_none() {
             return Err(format!("ogiltig tidsstämpel \"{}\"", e.timestamp));
         }
     }
-    Ok(tips)
+    Ok(())
 }
 
 /// Models sometimes wrap JSON in ```json fences even when told not to.
@@ -350,9 +571,16 @@ pub fn verify_against_transcript(mut tips: Tips, segments: &[Segment]) -> Tips {
     tips.selling_points.retain_mut(|p| check(&mut p.evidence));
     tips.customer_needs.retain_mut(|p| check(&mut p.evidence));
     tips.objections.retain_mut(|p| check(&mut p.evidence));
+    let had_high = tips.flags.iter().any(|f| f.severity == SEVERITY_HIGH);
+    tips.flags.retain_mut(|p| check(&mut p.evidence));
+    tips.policy_gaps.retain_mut(|p| check(&mut p.evidence));
+    // "Allvarligt" rested on a serious flag we couldn't find in the transcript.
+    if tips.verdict == VERDICT_SERIOUS && had_high && !tips.flags.iter().any(|f| f.severity == SEVERITY_HIGH) {
+        tips.verdict = VERDICT_CHECK.into();
+    }
     tips.speakers.retain(|r| r.segment_id < segments.len());
     // Names are only shown if they were actually said.
-    for field in [&mut tips.customer_name, &mut tips.customer_company] {
+    for field in [&mut tips.customer_name, &mut tips.customer_company, &mut tips.seller_name] {
         if !is_mentioned(segments, field) {
             field.clear();
         }
@@ -362,8 +590,65 @@ pub fn verify_against_transcript(mut tips: Tips, segments: &[Segment]) -> Tips {
     tips
 }
 
-/// "Kopiera säljtips": the tips as readable plain text.
+/// Swedish label for a verdict.
+pub fn verdict_label(verdict: &str) -> &'static str {
+    match verdict {
+        VERDICT_OK => "Godkänt",
+        VERDICT_CHECK => "Bör ses över",
+        VERDICT_SERIOUS => "Allvarligt",
+        _ => "Inget omdöme",
+    }
+}
+
+fn severity_label(severity: &str) -> &'static str {
+    match severity {
+        SEVERITY_HIGH => "hög",
+        "medel" => "medel",
+        _ => "låg",
+    }
+}
+
+/// "Kopiera granskning": an admin review as readable plain text.
+fn format_review_plain(tips: &Tips, title: &str) -> String {
+    let mut out = format!("Granskning – {title}\n\n");
+    out.push_str(&format!("Omdöme: {}", verdict_label(&tips.verdict)));
+    if !tips.verdict_reason.trim().is_empty() {
+        out.push_str(&format!(". {}", tips.verdict_reason.trim()));
+    }
+    out.push_str("\n\nSammanfattning\n");
+    out.push_str(tips.summary.trim());
+    out.push_str("\n\n");
+    if !tips.flags.is_empty() {
+        out.push_str("Flaggat\n");
+        for f in &tips.flags {
+            out.push_str(&format!(
+                "• {} (allvarlighet: {})\n  {}\n  [{}] \"{}\"\n",
+                f.rule,
+                severity_label(&f.severity),
+                f.explanation,
+                f.evidence.timestamp,
+                f.evidence.quote
+            ));
+        }
+        out.push('\n');
+    }
+    if !tips.policy_gaps.is_empty() {
+        out.push_str("Saknas i policyn\n");
+        for g in &tips.policy_gaps {
+            out.push_str(&format!(
+                "• {}\n  [{}] \"{}\"\n  Föreslagen regel: {}\n",
+                g.issue, g.evidence.timestamp, g.evidence.quote, g.suggested_rule
+            ));
+        }
+    }
+    out.trim_end().to_string()
+}
+
+/// "Kopiera säljtips" / "Kopiera granskning": the analysis as readable plain text.
 pub fn format_tips_plain(tips: &Tips, title: &str) -> String {
+    if tips.kind == Kind::Review {
+        return format_review_plain(tips, title);
+    }
     let mut out = String::new();
     out.push_str(&format!("Säljtips – {title}\n\n"));
     out.push_str("Sammanfattning\n");
@@ -580,5 +865,109 @@ mod tests {
         let schema = response_schema();
         let required = schema["required"].as_array().unwrap();
         assert_eq!(required.len(), schema["properties"].as_object().unwrap().len());
+    }
+
+    fn review_json() -> String {
+        json!({
+            "speakers": [],
+            "channelRoles": [{"speaker": "Talare 1", "role": "Säljare"}, {"speaker": "Talare 2", "role": "Kund"}],
+            "sellerName": "Anna",
+            "customerName": "",
+            "customerCompany": "",
+            "summary": "Anna ringer en kund om uppföljning. Kunden tycker att det är dyrt.",
+            "flags": [
+                {"rule": "2. Nämn priset tidigt", "severity": "medel", "explanation": "Priset kom inte upp.",
+                 "quote": "det är nog för dyrt för oss", "timestamp": "00:19"},
+                {"rule": "4. Inga falska löften", "severity": "hog", "explanation": "Lovade gratis för alltid.",
+                 "quote": "Det blir gratis för alltid", "timestamp": "00:40"}
+            ],
+            "policyGaps": [
+                {"issue": "Pressade kunden.", "suggestedRule": "Respektera ett nej.",
+                 "quote": "Vad bra att du säger det", "timestamp": "00:11"}
+            ],
+            "verdict": "allvarligt",
+            "verdictReason": "Ett falskt löfte."
+        })
+        .to_string()
+    }
+
+    #[test]
+    fn review_parses_into_a_review() {
+        let t = parse_review(&review_json(), 6).unwrap();
+        assert_eq!(t.kind, Kind::Review);
+        assert_eq!(t.flags.len(), 2);
+        assert_eq!(t.policy_gaps[0].suggested_rule, "Respektera ett nej.");
+        assert!(t.selling_points.is_empty());
+    }
+
+    #[test]
+    fn review_with_bad_verdict_or_severity_is_rejected() {
+        let mut v: serde_json::Value = serde_json::from_str(&review_json()).unwrap();
+        v["verdict"] = json!("kanske");
+        assert!(parse_review(&v.to_string(), 6).unwrap_err().contains("omdöme"));
+        let mut v: serde_json::Value = serde_json::from_str(&review_json()).unwrap();
+        v["flags"][0]["severity"] = json!("enorm");
+        assert!(parse_review(&v.to_string(), 6).unwrap_err().contains("allvarlighetsgrad"));
+        let mut v: serde_json::Value = serde_json::from_str(&review_json()).unwrap();
+        v.as_object_mut().unwrap().remove("policyGaps");
+        assert!(parse_review(&v.to_string(), 6).is_err(), "every field is required");
+    }
+
+    #[test]
+    fn review_verification_drops_invented_flags_and_softens_the_verdict() {
+        let t = verify_against_transcript(parse_review(&review_json(), 6).unwrap(), &segments());
+        assert_eq!(t.flags.len(), 1, "the invented promise must go");
+        assert_eq!(t.flags[0].evidence.segment_id, Some(4));
+        assert_eq!(t.policy_gaps[0].evidence.segment_id, Some(2));
+        assert_eq!(t.dropped_points, 1);
+        // The only serious flag was not in the call, so "allvarligt" no longer holds.
+        assert_eq!(t.verdict, VERDICT_CHECK);
+        assert_eq!(t.seller_name, "Anna", "said in segment 0");
+    }
+
+    #[test]
+    fn review_plain_text_has_verdict_flags_and_gaps() {
+        let t = verify_against_transcript(parse_review(&review_json(), 6).unwrap(), &segments());
+        let text = format_tips_plain(&t, "Samtal med Anna");
+        assert!(text.starts_with("Granskning – Samtal med Anna\n\nOmdöme: Bör ses över."));
+        assert!(text.contains("Flaggat\n• 2. Nämn priset tidigt (allvarlighet: medel)"));
+        assert!(text.contains("Saknas i policyn\n• Pressade kunden."));
+        assert!(text.contains("Föreslagen regel: Respektera ett nej."));
+    }
+
+    #[test]
+    fn review_schema_requires_every_field() {
+        let schema = review_schema();
+        let required = schema["required"].as_array().unwrap();
+        assert_eq!(required.len(), schema["properties"].as_object().unwrap().len());
+    }
+
+    #[test]
+    fn analyses_from_before_reviews_are_sales() {
+        // Stored before `kind` and the review fields existed.
+        let t: Tips = serde_json::from_str(&valid_json()).unwrap();
+        assert_eq!(t.kind, Kind::Sales);
+        assert!(t.verdict.is_empty() && t.flags.is_empty());
+    }
+
+    #[test]
+    fn review_prompt_uses_the_policy_or_good_practice() {
+        let admin = Profile { name: "Eva".into(), role: "admin".into(), policy: "Nämn priset tidigt".into(), ..Default::default() };
+        let p = review_prompt(&segments(), true, &admin);
+        assert!(p.contains("1. Nämn priset tidigt"));
+        assert!(p.contains("policyGaps"));
+        let p = review_prompt(&segments(), true, &Profile { role: "admin".into(), ..Default::default() });
+        assert!(p.contains("inga nedskrivna regler"));
+    }
+
+    #[test]
+    fn review_prompt_includes_the_terms() {
+        let admin = Profile { role: "admin".into(), terms: "§ 4 Uppsägning sker tre månader i förväg.".into(), ..Default::default() };
+        let p = review_prompt(&segments(), true, &admin);
+        assert!(p.contains("<allmänna_villkor>\n§ 4 Uppsägning sker tre månader i förväg.\n</allmänna_villkor>"));
+        assert!(p.contains("strider mot villkoren"));
+        let seller = Profile { terms: "§ 4".into(), ..Default::default() };
+        assert!(!user_prompt(&segments(), true, &seller).contains("villkor"), "sellers don't get the terms");
+        assert!(!review_prompt(&segments(), true, &Profile { role: "admin".into(), ..Default::default() }).contains("allmänna villkoren ovan"));
     }
 }

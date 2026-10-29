@@ -3,7 +3,9 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::tips::{ROLE_CUSTOMER, ROLE_SELLER, Tips};
+use crate::tips::{Kind, ROLE_CUSTOMER, ROLE_SELLER, Tips};
+
+pub const ROLE_ADMIN: &str = "admin";
 use crate::transcript::Segment;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -15,6 +17,17 @@ pub struct Profile {
     pub company: String,
     /// What the seller sells and their main arguments, in their own words.
     pub offer: String,
+    /// "saljare" (coaching for your own calls) or [`ROLE_ADMIN`] (reviewing others' calls).
+    /// Profiles from before roles existed are sellers.
+    #[serde(default)]
+    pub role: String,
+    /// Admin: what to flag, one rule per line, in their own words.
+    #[serde(default)]
+    pub policy: String,
+    /// Admin: the company's "Allmänna villkor" as text. Not part of the stored profile or
+    /// sent to the UI: loaded from its own setting when the AI needs it (see terms.rs).
+    #[serde(skip)]
+    pub terms: String,
 }
 
 impl Profile {
@@ -30,8 +43,32 @@ impl Profile {
         self.name.split_whitespace().next()
     }
 
-    /// Context for the AI about the person being coached.
+    pub fn is_admin(&self) -> bool {
+        self.role == ROLE_ADMIN
+    }
+
+    /// The policy as numbered lines, so flags can point at "regel 3". Lines that already
+    /// start with a number keep it.
+    pub fn numbered_policy(&self) -> String {
+        let lines = self.policy.lines().map(str::trim).filter(|l| !l.is_empty());
+        let mut out = Vec::new();
+        for (i, line) in lines.enumerate() {
+            let line = line.trim_start_matches(['-', '•', '*']).trim();
+            if line.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+                out.push(line.to_string());
+            } else {
+                out.push(format!("{}. {line}", i + 1));
+            }
+        }
+        out.join("\n")
+    }
+
+    /// Context for the AI: the person being coached, or for an admin, who is reviewing and
+    /// against which rules.
     pub fn prompt_block(&self) -> Option<String> {
+        if self.is_admin() {
+            return self.admin_prompt_block();
+        }
         let name = self.name.trim();
         if name.is_empty() && self.offer.trim().is_empty() {
             return None;
@@ -51,6 +88,35 @@ impl Profile {
             out.push_str(&format!("\n\nDet här säljer säljaren, med egna ord:\n{}", self.offer.trim()));
         }
         Some(out)
+    }
+}
+
+impl Profile {
+    fn admin_prompt_block(&self) -> Option<String> {
+        let name = self.name.trim();
+        let company = self.company.trim();
+        let policy = self.numbered_policy();
+        let terms = self.terms.trim();
+        if name.is_empty() && company.is_empty() && policy.is_empty() && terms.is_empty() {
+            return None;
+        }
+        let mut out = String::new();
+        if !name.is_empty() {
+            out.push_str(&format!(
+                "Granskningen görs åt {name}{}, som granskar andras samtal och inte deltar i det här. \
+Säljaren i samtalet är någon annan, så använd inte namnet {name} för säljaren.",
+                if company.is_empty() { String::new() } else { format!(" på {company}") }
+            ));
+        } else if !company.is_empty() {
+            out.push_str(&format!("Säljaren arbetar på {company}."));
+        }
+        if !policy.is_empty() {
+            out.push_str(&format!("\n\nFöretagets regler för säljsamtal:\n{policy}"));
+        }
+        if !terms.is_empty() {
+            out.push_str(&format!("\n\nFöretagets allmänna villkor:\n<allmänna_villkor>\n{terms}\n</allmänna_villkor>"));
+        }
+        Some(out.trim().to_string())
     }
 }
 
@@ -75,7 +141,11 @@ pub fn roles(segments: &[Segment], tips: Option<&Tips>) -> Vec<Option<String>> {
 /// found it in the call, else the role, else the channel ("Talare 1").
 pub fn labels(segments: &[Segment], roles: &[Option<String>], profile: &Profile, tips: Option<&Tips>) -> Vec<Option<String>> {
     let customer = tips.map(|t| t.customer_name.trim()).filter(|n| !n.is_empty());
-    let seller = profile.first_name();
+    // A review is of someone else's call: the seller is whoever the call names, never you.
+    let seller = match tips {
+        Some(t) if t.kind == Kind::Review => t.seller_name.split_whitespace().next(),
+        _ => profile.first_name(),
+    };
     segments
         .iter()
         .map(|s| match roles.get(s.id).and_then(|r| r.as_deref()) {
@@ -159,7 +229,7 @@ mod tests {
     }
 
     fn profile() -> Profile {
-        Profile { name: "Anna Berg".into(), gender: "kvinna".into(), company: "Prospex".into(), offer: String::new() }
+        Profile { name: "Anna Berg".into(), gender: "kvinna".into(), company: "Prospex".into(), ..Default::default() }
     }
 
     #[test]
@@ -230,5 +300,44 @@ mod tests {
         assert!(text.contains("arbetar på Prospex"));
         assert!(text.contains("CRM för hantverkare."));
         assert!(Profile::default().prompt_block().is_none());
+    }
+
+    fn admin() -> Profile {
+        Profile {
+            name: "Eva Lind".into(),
+            company: "Prospex".into(),
+            role: ROLE_ADMIN.into(),
+            policy: "Nämn priset tidigt\n- Inga falska löften\n\n7. Fråga om inspelning".into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn policy_is_numbered_once() {
+        assert_eq!(admin().numbered_policy(), "1. Nämn priset tidigt\n2. Inga falska löften\n7. Fråga om inspelning");
+    }
+
+    #[test]
+    fn admin_prompt_names_the_reviewer_and_the_rules() {
+        let block = admin().prompt_block().unwrap();
+        assert!(block.contains("Eva Lind på Prospex"));
+        assert!(block.contains("använd inte namnet Eva Lind för säljaren"));
+        assert!(block.contains("2. Inga falska löften"));
+        assert!(!profile().prompt_block().unwrap().contains("regler"), "sellers get no rules");
+    }
+
+    #[test]
+    fn reviews_never_label_the_admin_as_the_seller() {
+        let segs = vec![seg(0, 0, 2_000, "Hej, det är Anna.", Some("Talare 1")), seg(1, 2_500, 4_000, "Hej.", Some("Talare 2"))];
+        let mut t = tips("");
+        t.kind = Kind::Review;
+        t.channel_roles = vec![
+            ChannelRole { speaker: "Talare 1".into(), role: ROLE_SELLER.into() },
+            ChannelRole { speaker: "Talare 2".into(), role: ROLE_CUSTOMER.into() },
+        ];
+        let r = roles(&segs, Some(&t));
+        assert_eq!(labels(&segs, &r, &admin(), Some(&t)), vec![Some("Säljare".into()), Some("Kund".into())]);
+        t.seller_name = "Anna Berg".into();
+        assert_eq!(labels(&segs, &r, &admin(), Some(&t))[0], Some("Anna".into()));
     }
 }

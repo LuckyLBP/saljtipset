@@ -7,6 +7,7 @@ pub mod gpu;
 pub mod models;
 pub mod people;
 pub mod sales;
+pub mod terms;
 pub mod secrets;
 pub mod tips;
 pub mod transcribe;
@@ -34,6 +35,7 @@ const SETTING_USE_GPU: &str = "use_gpu";
 const SETTING_AI_PROVIDER: &str = "ai_provider";
 const SETTING_THEME: &str = "theme";
 const SETTING_PROFILE: &str = "profile";
+const SETTING_TERMS: &str = "terms";
 
 struct Job {
     call_id: String,
@@ -77,8 +79,16 @@ impl AppState {
         self.setting(SETTING_THEME).unwrap_or_else(|| "system".into())
     }
     /// The seller's profile from onboarding; `None` until onboarding is done.
+    /// The profile, with an admin's terms text filled in for the AI.
     fn profile(&self) -> Option<people::Profile> {
-        self.setting(SETTING_PROFILE).and_then(|s| serde_json::from_str(&s).ok())
+        let mut profile: people::Profile = self.setting(SETTING_PROFILE).and_then(|s| serde_json::from_str(&s).ok())?;
+        if profile.is_admin() {
+            profile.terms = self.terms().map(|t| t.text).unwrap_or_default();
+        }
+        Some(profile)
+    }
+    fn terms(&self) -> Option<terms::Terms> {
+        self.setting(SETTING_TERMS).and_then(|s| serde_json::from_str(&s).ok())
     }
     /// "auto" or a [`ai::Provider`] id.
     fn ai_provider_setting(&self) -> String {
@@ -543,6 +553,9 @@ fn save_profile(state: State<'_, AppState>, profile: people::Profile) -> CmdResu
         gender: profile.gender.trim().to_string(),
         company: profile.company.trim().to_string(),
         offer: profile.offer.trim().to_string(),
+        role: if profile.is_admin() { people::ROLE_ADMIN.into() } else { "saljare".into() },
+        policy: profile.policy.trim().to_string(),
+        terms: String::new(), // stored separately, see import_terms
     };
     if profile.name.is_empty() {
         return Err("Skriv ditt namn först.".into());
@@ -629,9 +642,42 @@ async fn send_chat(state: State<'_, AppState>, id: String, question: String) -> 
         .iter()
         .map(|m| ai::Turn { role: if m.role == "user" { ai::Role::User } else { ai::Role::Assistant }, text: m.text.clone() })
         .collect();
-    let context = ai::chat_context(&call.title, &call.segments, call.tips.as_ref(), &state.profile().unwrap_or_default());
-    let answer = ai::complete(&backend, &ai::chat_prompt(context, &turns, &question)).await?;
+    let profile = state.profile().unwrap_or_default();
+    // Talk like a reviewer about a reviewed call, or whenever you are an admin.
+    let review = profile.is_admin() || call.tips.as_ref().is_some_and(|t| t.kind == tips::Kind::Review);
+    let context = ai::chat_context(&call.title, &call.segments, call.tips.as_ref(), &profile);
+    let answer = ai::complete(&backend, &ai::chat_prompt(context, &turns, &question, review)).await?;
     state.db.lock().unwrap().add_chat_exchange(&id, &question, answer.trim()).map_err(err)
+}
+
+/// The uploaded "Allmänna villkor", without the text.
+#[tauri::command]
+fn terms_info(state: State<'_, AppState>) -> Option<terms::TermsInfo> {
+    state.terms().map(|t| t.info())
+}
+
+/// Read a terms file (PDF, Word or text) and keep its text.
+#[tauri::command]
+async fn import_terms(state: State<'_, AppState>, path: String) -> CmdResult<terms::TermsInfo> {
+    // PDF parsing can take a moment on long documents; keep it off the async runtime.
+    let t = tauri::async_runtime::spawn_blocking(move || terms::import(Path::new(&path))).await.map_err(err)??;
+    state.db.lock().unwrap().set_setting(SETTING_TERMS, &serde_json::to_string(&t).unwrap()).map_err(err)?;
+    Ok(t.info())
+}
+
+#[tauri::command]
+fn remove_terms(state: State<'_, AppState>) -> CmdResult<()> {
+    state.db.lock().unwrap().delete_setting(SETTING_TERMS).map_err(err)
+}
+
+/// "Fråga AI" in onboarding and Settings: rules for an admin's reviews, from a description.
+#[tauri::command]
+async fn draft_policy(state: State<'_, AppState>, description: String, current: String) -> CmdResult<String> {
+    if description.trim().is_empty() {
+        return Err("Beskriv kort vad ni säljer och vad som är viktigt först.".into());
+    }
+    let backend = resolve_backend(&state).await?;
+    ai::draft_policy(&backend, &description, &current).await
 }
 
 #[tauri::command]
@@ -817,6 +863,10 @@ pub fn run() {
             chat_history,
             send_chat,
             clear_chat,
+            draft_policy,
+            terms_info,
+            import_terms,
+            remove_terms,
             update_settings,
             download_model,
             cancel_download,

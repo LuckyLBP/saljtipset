@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { CallSummary } from "../api";
+import { type CallSummary, VERDICT_LABEL } from "../api";
 import type { LiveJob, View } from "../App";
 import { Logo } from "../brand";
 import { Icon, ProgressBar, Spinner } from "../ui";
@@ -126,6 +126,10 @@ function StatusDot({ call, live, queued, tips }: { call: CallSummary; live: bool
   if (live || call.status === "transcribing" || tips) return <Spinner className="text-accent" />;
   if (queued) return <span className="h-2 w-2 rounded-full border-[1.5px] border-faint" title="I kö" />;
   if (call.status === "error") return <span className="h-2 w-2 rounded-full bg-danger" title="Misslyckades" />;
+  if (call.verdict) {
+    const dot = { godkant: "bg-ok", bor_ses_over: "bg-warn", allvarligt: "bg-danger" }[call.verdict];
+    return <span className={`h-2.5 w-2.5 rounded-full ${dot}`} title={`Granskning: ${VERDICT_LABEL[call.verdict]}`} />;
+  }
   if (call.hasTips)
     return (
       <span className="text-accent" title="Säljtips klara">

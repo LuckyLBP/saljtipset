@@ -43,6 +43,7 @@ hex = "0.4"
 keyring = "4"
 rusqlite = { version = "0.41", features = ["bundled"] }
 docx-rs = "0.4"
+pdf-extract = "0.12"
 thiserror = "2"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }

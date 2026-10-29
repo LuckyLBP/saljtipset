@@ -38,6 +38,11 @@
   --color-speaker-b: #b8324f;
   --color-danger: #c4321f;
   --color-danger-soft: rgba(196, 50, 31, 0.09);
+  /* Review verdicts: godkänt / bör ses över (allvarligt uses danger). */
+  --color-ok: #2e7a3c;
+  --color-ok-soft: rgba(46, 122, 60, 0.1);
+  --color-warn: #b04a00;
+  --color-warn-soft: rgba(214, 110, 20, 0.12);
   --color-mark: rgba(255, 197, 61, 0.4);
   --color-glass: rgba(255, 252, 244, 0.72);
   --color-glass-line: rgba(255, 255, 255, 0.7);
@@ -65,6 +70,10 @@
     --color-speaker-b: #ff7c99;
     --color-danger: #ff8a7a;
     --color-danger-soft: rgba(255, 138, 122, 0.12);
+    --color-ok: #7fd897;
+    --color-ok-soft: rgba(127, 216, 151, 0.12);
+    --color-warn: #ffad5c;
+    --color-warn-soft: rgba(255, 173, 92, 0.13);
     --color-mark: rgba(255, 197, 61, 0.3);
     --color-glass: rgba(40, 35, 30, 0.68);
     --color-glass-line: rgba(255, 255, 255, 0.1);

@@ -239,11 +239,15 @@ export function ErrorNote({ children }: { children: ReactNode }) {
 }
 
 /** Status pill. */
-export function Pill({ tone = "neutral", children }: { tone?: "neutral" | "accent" | "danger"; children: ReactNode }) {
+export type PillTone = "neutral" | "accent" | "danger" | "ok" | "warn";
+
+export function Pill({ tone = "neutral", children }: { tone?: PillTone; children: ReactNode }) {
   const tones = {
     neutral: "bg-sunken text-muted",
     accent: "bg-accent-soft text-accent",
     danger: "bg-danger-soft text-danger",
+    ok: "bg-ok-soft text-ok",
+    warn: "bg-warn-soft text-warn",
   };
   return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-medium ${tones[tone]}`}>{children}</span>;
 }
@@ -271,6 +275,8 @@ export const Icon = {
   Search: () => svg(<><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></>, 14),
   Wave: () => svg(<path d="M3 12h2m3-5v10m4-13v16m4-11v6m4-3h1" />),
   Download: () => svg(<path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" />),
+  Shield: () => svg(<><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6l-7-3Z" /><path d="m9 12 2 2 4-4" /></>),
+  Flag: () => svg(<path d="M5 21V4m0 0h11l-2 4 2 4H5" />),
   Quote: () => svg(<path d="M7 7h4v4c0 3-1.5 5-4 6M15 7h4v4c0 3-1.5 5-4 6" />, 14),
   Refresh: () => svg(<><path d="M20 11a8 8 0 0 0-14.7-3.5M4 4v4h4" /><path d="M4 13a8 8 0 0 0 14.7 3.5M20 20v-4h-4" /></>, 14),
 };

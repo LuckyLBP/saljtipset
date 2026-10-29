@@ -61,12 +61,30 @@ export interface ChatMessage {
 export type Theme = "system" | "light" | "dark";
 export type Gender = "kvinna" | "man" | "annat" | "";
 
+/** "saljare" coaches your own calls; "admin" reviews other people's calls against rules. */
+export type UserRole = "saljare" | "admin";
+
 export interface Profile {
   name: string;
   gender: Gender;
   company: string;
   offer: string;
+  /** Empty in profiles from before roles existed: treat as "saljare". */
+  role: UserRole | "";
+  /** Admin: what to flag, one rule per line. */
+  policy: string;
 }
+
+export const isAdmin = (p: Profile) => p.role === "admin";
+
+/** The uploaded "Allmänna villkor" (the text itself stays in the backend). */
+export interface TermsInfo {
+  fileName: string;
+  chars: number;
+  truncated: boolean;
+  importedAt: string;
+}
+export const TERMS_EXTENSIONS = ["pdf", "docx", "txt", "md"];
 
 export interface CallStats {
   sellerTalkShare: number;
@@ -116,7 +134,19 @@ export interface Evidence {
   segmentId: number | null;
 }
 
+export type Verdict = "godkant" | "bor_ses_over" | "allvarligt";
+export type Severity = "lag" | "medel" | "hog";
+
+export const VERDICT_LABEL: Record<Verdict, string> = {
+  godkant: "Godkänt",
+  bor_ses_over: "Bör ses över",
+  allvarligt: "Allvarligt",
+};
+export const SEVERITY_LABEL: Record<Severity, string> = { lag: "Låg", medel: "Medel", hog: "Hög" };
+
+/** The AI's analysis: sales coaching (`kind` "sales") or an admin review (`kind` "review"). */
 export interface Tips {
+  kind: "sales" | "review";
   speakers: { segmentId: number; role: string }[];
   channelRoles: { speaker: string; role: string }[];
   summary: string;
@@ -127,6 +157,12 @@ export interface Tips {
   nextSteps: string[];
   customerName: string;
   customerCompany: string;
+  /** Review only. */
+  sellerName: string;
+  verdict: Verdict | "";
+  verdictReason: string;
+  flags: (Evidence & { rule: string; severity: Severity; explanation: string })[];
+  policyGaps: (Evidence & { issue: string; suggestedRule: string })[];
   droppedPoints: number;
 }
 
@@ -140,6 +176,8 @@ export interface CallSummary {
   durationMs: number;
   status: CallStatus;
   hasTips: boolean;
+  /** Set when the call has an admin review. */
+  verdict: Verdict | null;
 }
 
 export interface Call {
@@ -218,6 +256,11 @@ export const api = {
   chatHistory: (id: string) => invoke<ChatMessage[]>("chat_history", { id }),
   sendChat: (id: string, question: string) => invoke<ChatMessage[]>("send_chat", { id, question }),
   clearChat: (id: string) => invoke<void>("clear_chat", { id }),
+  /** "Fråga AI": numbered rules for an admin's reviews, from a short description. */
+  draftPolicy: (description: string, current: string) => invoke<string>("draft_policy", { description, current }),
+  termsInfo: () => invoke<TermsInfo | null>("terms_info"),
+  importTerms: (path: string) => invoke<TermsInfo>("import_terms", { path }),
+  removeTerms: () => invoke<void>("remove_terms"),
   checkUpdate: () => invoke<string | null>("check_update"),
   installUpdate: () => invoke<void>("install_update"),
 };

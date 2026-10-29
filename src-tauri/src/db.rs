@@ -28,6 +28,8 @@ pub struct CallSummary {
     pub duration_ms: u64,
     pub status: String,
     pub has_tips: bool,
+    /// An admin review's verdict ("godkant", "bor_ses_over", "allvarligt"), for the list's dot.
+    pub verdict: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -175,7 +177,9 @@ impl Db {
 
     pub fn list(&self) -> rusqlite::Result<Vec<CallSummary>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, title, file_name, created_at, duration_ms, status, tips IS NOT NULL FROM calls ORDER BY created_at DESC",
+            "SELECT id, title, file_name, created_at, duration_ms, status, tips IS NOT NULL,
+                    NULLIF(json_extract(tips, '$.verdict'), '')
+             FROM calls ORDER BY created_at DESC",
         )?;
         stmt.query_map([], |r| {
             Ok(CallSummary {
@@ -186,6 +190,7 @@ impl Db {
                 duration_ms: r.get::<_, i64>(4)? as u64,
                 status: r.get(5)?,
                 has_tips: r.get(6)?,
+                verdict: r.get(7)?,
             })
         })?
         .collect()
@@ -258,6 +263,11 @@ impl Db {
         self.conn.query_row("SELECT value FROM settings WHERE key = ?1", params![key], |r| r.get(0)).optional().ok()?
     }
 
+    pub fn delete_setting(&self, key: &str) -> rusqlite::Result<()> {
+        self.conn.execute("DELETE FROM settings WHERE key = ?1", params![key])?;
+        Ok(())
+    }
+
     pub fn set_setting(&self, key: &str, value: &str) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO settings (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -316,6 +326,27 @@ mod tests {
         assert!(db.chat_history("a").unwrap().is_empty(), "chat goes with the call");
         db.delete_all().unwrap();
         assert!(db.list().unwrap().is_empty());
+    }
+
+    #[test]
+    fn list_shows_a_reviews_verdict() {
+        let db = Db::open_in_memory().unwrap();
+        db.insert_call(&call("sales", "2026-10-01T10:00:00Z")).unwrap();
+        db.insert_call(&call("review", "2026-10-02T10:00:00Z")).unwrap();
+        let tips = |extra: serde_json::Value| -> Tips {
+            let mut v = serde_json::json!({
+                "speakers": [], "channelRoles": [], "summary": "x", "sellingPoints": [], "customerNeeds": [],
+                "objections": [], "missedOpportunities": [], "nextSteps": []
+            });
+            v.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            serde_json::from_value(v).unwrap()
+        };
+        db.save_tips("sales", &tips(serde_json::json!({}))).unwrap();
+        db.save_tips("review", &tips(serde_json::json!({"kind": "review", "verdict": "allvarligt"}))).unwrap();
+        let list = db.list().unwrap();
+        let verdict = |id: &str| list.iter().find(|c| c.id == id).unwrap().verdict.clone();
+        assert_eq!(verdict("review").as_deref(), Some("allvarligt"));
+        assert_eq!(verdict("sales"), None, "sales tips store an empty verdict");
     }
 
     #[test]

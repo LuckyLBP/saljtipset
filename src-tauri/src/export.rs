@@ -5,7 +5,7 @@ use std::path::Path;
 use docx_rs::{Docx, Paragraph, Run};
 
 use crate::db::Call;
-use crate::tips::format_tips_plain;
+use crate::tips::{Kind, Tips, format_tips_plain, verdict_label};
 use crate::transcript::{format_for_copy, format_timestamp, label_for};
 
 #[derive(Debug, Clone, Copy, serde::Deserialize)]
@@ -36,7 +36,9 @@ pub fn to_txt(call: &Call) -> String {
 
 pub fn to_markdown(call: &Call) -> String {
     let mut out = format!("# {}\n\n", call.title);
-    if let Some(t) = &call.tips {
+    if let Some(t) = call.tips.as_ref().filter(|t| t.kind == Kind::Review) {
+        review_markdown(t, &mut out);
+    } else if let Some(t) = &call.tips {
         out.push_str(&format!("## Sammanfattning\n\n{}\n\n", t.summary.trim()));
         if !t.selling_points.is_empty() {
             out.push_str("## Det här fungerade\n\n");
@@ -91,6 +93,36 @@ pub fn to_markdown(call: &Call) -> String {
     out
 }
 
+/// An admin review: verdict, flags, policy gaps, summary.
+fn review_markdown(t: &Tips, out: &mut String) {
+    out.push_str(&format!("**Omdöme: {}**", verdict_label(&t.verdict)));
+    if !t.verdict_reason.trim().is_empty() {
+        out.push_str(&format!(" – {}", t.verdict_reason.trim()));
+    }
+    out.push_str("\n\n");
+    if !t.flags.is_empty() {
+        out.push_str("## Flaggat\n\n");
+        for f in &t.flags {
+            out.push_str(&format!(
+                "- **{}** ({}) – {}\n  > [{}] {}\n",
+                f.rule, f.severity, f.explanation, f.evidence.timestamp, f.evidence.quote
+            ));
+        }
+        out.push('\n');
+    }
+    if !t.policy_gaps.is_empty() {
+        out.push_str("## Saknas i policyn\n\n");
+        for g in &t.policy_gaps {
+            out.push_str(&format!(
+                "- **{}**\n  > [{}] {}\n\n  Föreslagen regel: {}\n",
+                g.issue, g.evidence.timestamp, g.evidence.quote, g.suggested_rule
+            ));
+        }
+        out.push('\n');
+    }
+    out.push_str(&format!("## Sammanfattning\n\n{}\n\n", t.summary.trim()));
+}
+
 fn heading(text: &str, size: usize) -> Paragraph {
     Paragraph::new().add_run(Run::new().add_text(text).bold().size(size))
 }
@@ -107,7 +139,32 @@ fn quote(ts: &str, text: &str) -> Paragraph {
 
 pub fn write_docx(call: &Call, path: &Path) -> Result<(), String> {
     let mut doc = Docx::new().add_paragraph(heading(&call.title, 36));
-    if let Some(t) = &call.tips {
+    if let Some(t) = call.tips.as_ref().filter(|t| t.kind == Kind::Review) {
+        let mut verdict = Paragraph::new().add_run(Run::new().add_text(format!("Omdöme: {}", verdict_label(&t.verdict))).bold());
+        if !t.verdict_reason.trim().is_empty() {
+            verdict = verdict.add_run(Run::new().add_text(format!(" – {}", t.verdict_reason.trim())));
+        }
+        doc = doc.add_paragraph(verdict);
+        if !t.flags.is_empty() {
+            doc = doc.add_paragraph(heading("Flaggat", 28));
+            for f in &t.flags {
+                doc = doc
+                    .add_paragraph(Paragraph::new().add_run(Run::new().add_text(format!("{} ({})", f.rule, f.severity)).bold()))
+                    .add_paragraph(para(&f.explanation))
+                    .add_paragraph(quote(&f.evidence.timestamp, &f.evidence.quote));
+            }
+        }
+        if !t.policy_gaps.is_empty() {
+            doc = doc.add_paragraph(heading("Saknas i policyn", 28));
+            for g in &t.policy_gaps {
+                doc = doc
+                    .add_paragraph(Paragraph::new().add_run(Run::new().add_text(&g.issue).bold()))
+                    .add_paragraph(quote(&g.evidence.timestamp, &g.evidence.quote))
+                    .add_paragraph(para(&format!("Föreslagen regel: {}", g.suggested_rule)));
+            }
+        }
+        doc = doc.add_paragraph(heading("Sammanfattning", 28)).add_paragraph(para(t.summary.trim()));
+    } else if let Some(t) = &call.tips {
         doc = doc.add_paragraph(heading("Sammanfattning", 28)).add_paragraph(para(t.summary.trim()));
         if !t.selling_points.is_empty() {
             doc = doc.add_paragraph(heading("Det här fungerade", 28));
@@ -216,5 +273,32 @@ mod tests {
         export(&call(), Format::Docx, &path).unwrap();
         let bytes = std::fs::read(&path).unwrap();
         assert_eq!(&bytes[..2], b"PK");
+    }
+
+    fn reviewed() -> Call {
+        let mut c = call();
+        c.tips = Some(
+            serde_json::from_value(serde_json::json!({
+                "kind": "review", "speakers": [], "channelRoles": [], "summary": "Kort samtal.",
+                "sellingPoints": [], "customerNeeds": [], "objections": [], "missedOpportunities": [], "nextSteps": [],
+                "verdict": "bor_ses_over", "verdictReason": "Priset nämndes inte.",
+                "flags": [{"rule": "2. Nämn priset", "severity": "medel", "explanation": "Saknades.", "quote": "Hej!", "timestamp": "00:00"}],
+                "policyGaps": [{"issue": "Ingen presentation.", "suggestedRule": "Presentera dig.", "quote": "Hallå.", "timestamp": "00:03"}]
+            }))
+            .unwrap(),
+        );
+        c
+    }
+
+    #[test]
+    fn exports_show_a_review() {
+        let md = to_markdown(&reviewed());
+        assert!(md.contains("**Omdöme: Bör ses över** – Priset nämndes inte."));
+        assert!(md.contains("## Flaggat\n\n- **2. Nämn priset** (medel) – Saknades."));
+        assert!(md.contains("Föreslagen regel: Presentera dig."));
+        assert!(!md.contains("Det här fungerade"));
+        assert!(to_txt(&reviewed()).starts_with("Granskning – Demo med Kund AB"));
+        let dir = tempfile::tempdir().unwrap();
+        export(&reviewed(), Format::Docx, &dir.path().join("r.docx")).unwrap();
     }
 }

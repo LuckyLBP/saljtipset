@@ -11,11 +11,16 @@ import {
   formatDate,
   formatDuration,
   formatTimestamp,
+  isAdmin,
   type Segment,
+  SEVERITY_LABEL,
+  type Severity,
   type Tips,
+  type Verdict,
+  VERDICT_LABEL,
 } from "../api";
 import type { LiveJob, TipsState } from "../App";
-import { Button, ConfirmButton, ErrorNote, Icon, IconButton, Menu, Pill, ProgressBar, Segmented, Spinner } from "../ui";
+import { Button, ConfirmButton, ErrorNote, Icon, IconButton, Menu, Pill, type PillTone, ProgressBar, Segmented, Spinner } from "../ui";
 import ChatPanel from "./ChatPanel";
 import { Bubbe } from "../mascot";
 
@@ -71,6 +76,8 @@ export default function CallView({
     return call?.segments ?? [];
   }, [job, call]);
   const tips: Tips | null = tipsState?.tips ?? call?.tips ?? null;
+  // Admins get reviews; the wording follows the analysis on screen, else the role.
+  const review = tips ? tips.kind === "review" : isAdmin(info.profile);
 
   // Name and role per line, computed by the backend once the AI knows who's who.
   // While transcribing (provisional ids) only the channel speaker is known.
@@ -199,7 +206,7 @@ export default function CallView({
             />
           ) : (
             <ConfirmButton
-              label="Kopiera säljtips"
+              label={review ? "Kopiera granskning" : "Kopiera säljtips"}
               done="Kopierat!"
               icon={<Icon.Copy />}
               disabled={!tips}
@@ -227,7 +234,9 @@ export default function CallView({
             items={[
               { label: "Byt namn", icon: <Icon.Pencil />, onSelect: () => setEditingTitle(true) },
               {
-                label: tips ? "Ta fram säljtips igen" : "Ta fram säljtips",
+                label: isAdmin(info.profile)
+                  ? tips?.kind === "review" ? "Granska igen" : "Granska samtalet"
+                  : tips?.kind === "sales" ? "Ta fram säljtips igen" : "Ta fram säljtips",
                 icon: <Icon.Sparkle />,
                 disabled: !hasAi || transcribing || segments.length === 0 || tipsState?.running,
                 onSelect: () => {
@@ -304,6 +313,7 @@ export default function CallView({
           <div className="h-full overflow-auto">
             <div className="mx-auto max-w-[720px] px-8 pb-28 pt-7">
               <Overview
+                review={review}
                 tips={tips}
                 state={tipsState}
                 transcribing={transcribing}
@@ -378,7 +388,7 @@ export default function CallView({
         )}
 
         {!transcribing && segments.length > 0 && (
-          <ChatPanel callId={id} provider={info.activeProvider} onJumpToTime={jumpToTime} onOpenSettings={onOpenSettings} />
+          <ChatPanel callId={id} provider={info.activeProvider} review={review} onJumpToTime={jumpToTime} onOpenSettings={onOpenSettings} />
         )}
       </div>
     </div>
@@ -431,6 +441,7 @@ function EditableTitle({
 }
 
 function Overview({
+  review,
   tips,
   state,
   transcribing,
@@ -441,6 +452,8 @@ function Overview({
   onJump,
   onOpenSettings,
 }: {
+  /** An admin review rather than sales tips (or, before any analysis, an admin's call). */
+  review: boolean;
   tips: Tips | null;
   state?: TipsState[string];
   transcribing: boolean;
@@ -453,7 +466,7 @@ function Overview({
 }) {
   if (state?.running) {
     return (
-      <Empty icon={<Bubbe mood="thinking" size={96} />} title="Tar fram säljtips…">
+      <Empty icon={<Bubbe mood="thinking" size={96} />} title={review ? "Granskar samtalet…" : "Tar fram säljtips…"}>
         AI:n läser samtalet. Bara texten skickas, aldrig ljudet.
       </Empty>
     );
@@ -462,22 +475,30 @@ function Overview({
     return (
       <Empty
         icon={<Bubbe mood={transcribing ? "listening" : state?.error ? "oops" : "idle"} size={96} interactive={!transcribing} />}
-        title={transcribing ? "Säljtipsen kommer sen" : "Inga säljtips än"}
+        title={
+          review
+            ? transcribing ? "Granskningen kommer sen" : "Ingen granskning än"
+            : transcribing ? "Säljtipsen kommer sen" : "Inga säljtips än"
+        }
         action={
           transcribing ? null : !hasAi ? (
             <Button onClick={onOpenSettings}>Koppla en AI</Button>
           ) : (
             <Button variant="primary" size="lg" onClick={onRun} disabled={!hasSegments}>
-              <Icon.Sparkle /> Ta fram säljtips
+              {review ? <><Icon.Shield /> Granska samtalet</> : <><Icon.Sparkle /> Ta fram säljtips</>}
             </Button>
           )
         }
       >
-        {transcribing
-          ? "När transkriberingen är klar kan AI:n visa vad som fungerade och vad du kan göra bättre."
-          : !hasAi
-            ? "Använd din Claude- eller ChatGPT-prenumeration, eller en Anthropic API-nyckel."
-            : "AI:n läser samtalet och visar vad som fungerade, kundens behov och vad du kan göra bättre."}
+        {!transcribing && !hasAi
+          ? "Använd din Claude- eller ChatGPT-prenumeration, eller en Anthropic API-nyckel."
+          : review && transcribing
+            ? "När transkriberingen är klar kan AI:n jämföra samtalet med era regler och visa vad som bör ses över."
+            : review
+              ? "AI:n jämför samtalet med era regler och visar vad som bör ses över, med citat som belägg."
+              : transcribing
+              ? "När transkriberingen är klar kan AI:n visa vad som fungerade och vad du kan göra bättre."
+              : "AI:n läser samtalet och visar vad som fungerade, kundens behov och vad du kan göra bättre."}
         {state?.error && (
           <div className="mt-4 text-left">
             <ErrorNote>{state.error}</ErrorNote>
@@ -485,6 +506,10 @@ function Overview({
         )}
       </Empty>
     );
+  }
+
+  if (tips.kind === "review") {
+    return <ReviewOverview tips={tips} state={state} stats={stats} onJump={onJump} />;
   }
 
   return (
@@ -554,13 +579,103 @@ function Overview({
   );
 }
 
-function StatsRow({ stats }: { stats: CallStats }) {
+const VERDICT_TONE: Record<Verdict, PillTone> = { godkant: "ok", bor_ses_over: "warn", allvarligt: "danger" };
+const VERDICT_MOOD = { godkant: "cheer", bor_ses_over: "surprised", allvarligt: "oops" } as const;
+const SEVERITY_TONE: Record<Severity, PillTone> = { lag: "neutral", medel: "warn", hog: "danger" };
+
+/** An admin review: verdict, what broke the rules, what the rules miss, and the summary. */
+function ReviewOverview({
+  tips,
+  state,
+  stats,
+  onJump,
+}: {
+  tips: Tips;
+  state?: TipsState[string];
+  stats: CallStats | null;
+  onJump: (segmentId: number | null) => void;
+}) {
+  const verdict = tips.verdict || "bor_ses_over";
+  const tone = VERDICT_TONE[verdict];
+  const banner = { ok: "bg-ok-soft", warn: "bg-warn-soft", danger: "bg-danger-soft", neutral: "bg-sunken", accent: "bg-accent-soft" }[tone];
+  const people = [
+    tips.sellerName && `Säljare: ${tips.sellerName}`,
+    (tips.customerName || tips.customerCompany) && `Kund: ${[tips.customerName, tips.customerCompany].filter(Boolean).join(", ")}`,
+  ].filter(Boolean) as string[];
+  return (
+    <div className="space-y-8">
+      <section className={`flex items-center gap-4 rounded-[22px] px-5 py-4 ${banner}`}>
+        <Bubbe mood={VERDICT_MOOD[verdict]} size={64} />
+        <div className="min-w-0 space-y-1">
+          <Pill tone={tone}>
+            <Icon.Shield /> {VERDICT_LABEL[verdict]}
+          </Pill>
+          {tips.verdictReason && <p className="selectable text-[14px] font-medium leading-snug">{tips.verdictReason}</p>}
+          <p className="text-[12px] text-muted">
+            {tips.flags.length === 0 ? "Inga regelbrott" : tips.flags.length === 1 ? "1 flagga" : `${tips.flags.length} flaggor`}
+            {tips.policyGaps.length > 0 && ` · ${tips.policyGaps.length} saknas i policyn`}
+          </p>
+        </div>
+      </section>
+
+      <Section title="Flaggat" count={tips.flags.length}>
+        {tips.flags.map((f, i) => (
+          <TipCard
+            key={i}
+            title={f.rule}
+            badge={<Pill tone={SEVERITY_TONE[f.severity]}>{SEVERITY_LABEL[f.severity]}</Pill>}
+            quote={f.quote}
+            timestamp={f.timestamp}
+            onQuote={() => onJump(f.segmentId)}
+          >
+            {f.explanation}
+          </TipCard>
+        ))}
+      </Section>
+
+      <Section title="Saknas i policyn" count={tips.policyGaps.length}>
+        {tips.policyGaps.map((g, i) => (
+          <TipCard key={i} title={g.issue} quote={g.quote} timestamp={g.timestamp} onQuote={() => onJump(g.segmentId)}>
+            <span className="font-medium text-ink">Föreslagen regel:</span> {g.suggestedRule}
+          </TipCard>
+        ))}
+      </Section>
+
+      <section>
+        <h2 className="mb-2 text-[13px] font-semibold text-muted">Sammanfattning</h2>
+        <p className="selectable font-display text-[17px] leading-[1.55] tracking-[-0.01em]">{tips.summary}</p>
+        {people.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {people.map((p) => (
+              <Pill key={p} tone="accent">
+                {p}
+              </Pill>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {stats && <StatsRow stats={stats} seller />}
+
+      <p className="text-[12px] text-faint">
+        {tips.droppedPoints > 0 &&
+          `${tips.droppedPoints === 1 ? "En punkt togs bort" : `${tips.droppedPoints} punkter togs bort`} eftersom citatet inte fanns i samtalet. `}
+        Klicka på ett citat för att se det i transkriberingen. AI:n kan ta fel, så läs citatet innan du agerar.
+      </p>
+      {state?.error && <ErrorNote>{state.error}</ErrorNote>}
+    </div>
+  );
+}
+
+/** Talk statistics. `seller` words them about the seller instead of "you" (admin reviews). */
+function StatsRow({ stats, seller = false }: { stats: CallStats; seller?: boolean }) {
   const you = Math.round(stats.sellerTalkShare * 100);
   const secs = Math.round(stats.longestMonologueMs / 1000);
+  const from = seller ? "säljaren" : "dig";
   const tiles = [
-    { value: `${you} %`, label: "Du pratade", hint: `Kunden ${100 - you} %` },
-    { value: String(stats.sellerQuestions), label: stats.sellerQuestions === 1 ? "Fråga från dig" : "Frågor från dig", hint: `Kunden ställde ${stats.customerQuestions}` },
-    { value: `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`, label: "Längsta monolog", hint: "Din längsta utan avbrott" },
+    { value: `${you} %`, label: seller ? "Säljaren pratade" : "Du pratade", hint: `Kunden ${100 - you} %` },
+    { value: String(stats.sellerQuestions), label: stats.sellerQuestions === 1 ? `Fråga från ${from}` : `Frågor från ${from}`, hint: `Kunden ställde ${stats.customerQuestions}` },
+    { value: `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`, label: "Längsta monolog", hint: seller ? "Säljarens längsta utan avbrott" : "Din längsta utan avbrott" },
   ];
   return (
     <section className="space-y-2">
@@ -576,7 +691,9 @@ function StatsRow({ stats }: { stats: CallStats }) {
       <div className="flex items-center gap-2">
         <Bubbe mood={you < 50 ? "love" : "idle"} size={36} />
         <p className="text-[11.5px] text-faint">
-          {you < 50 ? "Snyggt, kunden fick prata mest. " : "Ett vanligt riktmärke är att kunden pratar mer än du. "}
+          {seller
+            ? you < 50 ? "Kunden fick prata mest. " : "Ett vanligt riktmärke är att kunden pratar mer än säljaren. "
+            : you < 50 ? "Snyggt, kunden fick prata mest. " : "Ett vanligt riktmärke är att kunden pratar mer än du. "}
           Räknat från transkriberingen{stats.exact ? "" : " med gissade talare"}.
         </p>
       </div>
@@ -620,12 +737,15 @@ function Section({
 
 function TipCard({
   title,
+  badge,
   quote,
   timestamp,
   onQuote,
   children,
 }: {
   title: string;
+  /** Shown next to the title, e.g. a severity pill. */
+  badge?: React.ReactNode;
   quote?: string;
   timestamp?: string;
   onQuote?: () => void;
@@ -633,7 +753,10 @@ function TipCard({
 }) {
   return (
     <div className="space-y-2 rounded-2xl bg-surface px-4 py-3.5 shadow-[0_0_0_0.5px_var(--color-line),0_1px_3px_rgba(0,0,0,0.04)]">
-      <div className="selectable text-[14px] font-semibold leading-snug">{title}</div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="selectable text-[14px] font-semibold leading-snug">{title}</div>
+        {badge && <div className="shrink-0">{badge}</div>}
+      </div>
       {children && <div className="selectable text-[13px] leading-relaxed text-muted">{children}</div>}
       {quote && (
         <button

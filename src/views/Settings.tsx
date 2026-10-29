@@ -43,7 +43,7 @@ export default function SettingsView({
           </Card>
         </Group>
 
-        <Group title="Om dig" description="Används för att visa vem som är vem och för att ge träffsäkrare tips.">
+        <Group title="Om dig" description="Din roll, och det AI:n behöver veta för träffsäkra tips eller granskningar.">
           <ProfileCard info={info} onSaved={onChanged} />
         </Group>
 
@@ -195,13 +195,20 @@ function UpdateCard({ info }: { info: AppInfo }) {
 }
 
 function ProfileCard({ info, onSaved }: { info: AppInfo; onSaved: () => void }) {
-  const [profile, setProfile] = useState<Profile>(info.profile);
+  const withRole = (p: Profile): Profile => ({ ...p, role: p.role || "saljare" });
+  const [profile, setProfile] = useState<Profile>(withRole(info.profile));
   const [status, setStatus] = useState<string | null>(null);
-  useEffect(() => setProfile(info.profile), [info.profile]);
-  const dirty = JSON.stringify(profile) !== JSON.stringify(info.profile);
+  useEffect(() => setProfile(withRole(info.profile)), [info.profile]);
+  const dirty = JSON.stringify(profile) !== JSON.stringify(withRole(info.profile));
+  const roleChanged = profile.role !== withRole(info.profile).role;
   return (
     <Card className="space-y-4 p-4">
       <ProfileFields profile={profile} onChange={setProfile} />
+      {roleChanged && (
+        <p className="text-[12px] leading-snug text-muted">
+          Nya analyser följer den nya rollen. Ett äldre samtal behåller sin analys tills du tar fram den igen.
+        </p>
+      )}
       <div className="flex items-center justify-end gap-3">
         {status && <span className="text-[12px] text-accent">{status}</span>}
         <Button

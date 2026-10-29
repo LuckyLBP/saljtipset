@@ -159,6 +159,27 @@ database and editable under **Inställningar → Om dig**.
   Apache-2.0). Your own "Ditt erbjudande" text is included so the tips relate to what you sell.
 - **Theme.** Inställningar → Utseende: Som datorn, Ljust or Mörkt.
 
+### Admin: reviewing other people's calls
+
+Onboarding (and Inställningar → Om dig) asks what you use Bubbe for: **Jag säljer** (coaching, as
+above) or **Jag granskar samtal** (admin). An admin gets a *review* instead of sales tips:
+
+- **Verdict:** Godkänt, Bör ses över or Allvarligt, with a one-sentence reason, shown as a banner and as
+  a coloured dot in the call list.
+- **Flaggat:** breaks of the admin's rules ("Regler att flagga", one per line, numbered so a flag can
+  say "regel 3"), each with severity, explanation and an exact, verified quote. Without rules the AI
+  judges against general good practice.
+- **Saknas i policyn:** risky things no rule covers, each with a suggested new rule.
+- **Allmänna villkor:** an admin can upload the company's terms (PDF, Word or text; `src-tauri/src/terms.rs`).
+  Only the text is kept, locally, capped at 60,000 characters. Reviews then flag anything the seller
+  says that contradicts them (price, contract length, notice period, cancellation rights). Scanned
+  PDFs contain no text and are refused with a message.
+- **Fråga AI** drafts the rules from a short description of the business; the admin edits the result.
+
+The admin's own name is never used for the seller; the seller is named only if the call says it.
+Each stored analysis records its kind, so old calls keep their sales tips until reviewed again,
+and the chat answers as a reviewer for reviewed calls.
+
 ## Download page (GitHub Pages)
 
 `site/` is a one-page download site. `.github/workflows/pages.yml` publishes it on every push to

@@ -10,15 +10,26 @@ const SUGGESTIONS = [
   "Vilka frågor borde jag ha ställt?",
 ];
 
+/** For an admin reviewing someone else's call. */
+const REVIEW_SUGGESTIONS = [
+  "Vad är viktigast att ta upp med säljaren?",
+  "Hur säger jag det på ett bra sätt?",
+  "Fick kunden all information om pris och villkor?",
+  "Vilka regler borde vi lägga till?",
+];
+
 /** Small chat window for asking the AI about one call. History is saved per call. */
 export default function ChatPanel({
   callId,
   provider,
+  review = false,
   onJumpToTime,
   onOpenSettings,
 }: {
   callId: string;
   provider: Provider | null;
+  /** An admin reviewing the call: suggestions and wording for that. */
+  review?: boolean;
   onJumpToTime: (ms: number) => void;
   onOpenSettings: () => void;
 }) {
@@ -100,10 +111,11 @@ export default function ChatPanel({
         {messages.length === 0 && !pending && (
           <div className="space-y-3 pt-6 text-center">
             <p className="mx-auto max-w-[280px] text-[12.5px] leading-relaxed text-muted">
-              Fråga vad som helst om samtalet. AI:n har hela transkriberingen och säljtipsen framför sig.
+              Fråga vad som helst om samtalet. AI:n har hela transkriberingen och{" "}
+              {review ? "era regler och granskningen" : "säljtipsen"} framför sig.
             </p>
             <div className="flex flex-wrap justify-center gap-1.5">
-              {SUGGESTIONS.map((s) => (
+              {(review ? REVIEW_SUGGESTIONS : SUGGESTIONS).map((s) => (
                 <button
                   key={s}
                   onClick={() => send(s)}
@@ -151,7 +163,7 @@ export default function ChatPanel({
                   send(draft);
                 }
               }}
-              placeholder="Skulle jag kunnat säga något annat?"
+              placeholder={review ? "Vad ska jag ta upp med säljaren?" : "Skulle jag kunnat säga något annat?"}
               className="selectable max-h-28 min-h-[30px] flex-1 resize-none bg-transparent py-1.5 text-[13px] outline-none placeholder:text-faint"
             />
             <button
